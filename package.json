@@ -6,6 +6,8 @@
         "packages/*"
     ],
     "scripts": {
-        "dev:web": "npm run dev -w web"
+        "dev:web": "npm run dev -w web",
+        "dev:api": "npm run dev -w api",
+        "test": "npm run test --workspaces --if-present"
     }
 }
