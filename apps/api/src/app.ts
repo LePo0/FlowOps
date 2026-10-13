@@ -9,5 +9,5 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+  res.json({ status: "ok" });
 });
