@@ -18,3 +18,31 @@ export interface ValidationError {
 
 export type ValidationResult =
     { ok: true; graph: WorkflowGraph } | { ok: false; errors: ValidationError[] };
+
+export type NodeStatus = "SUCCESS" | "FAILED" | "SKIPPED";
+
+export interface NodeResult {
+    nodeId: string;
+    status: NodeStatus;
+    output?: unknown;
+    error?: string;
+    durationMs: number;
+}
+
+export type ExecutionResult =
+    | { status: "INVALID"; errors: ValidationError[] }
+    | { status: "SUCCESS" | "FAILED"; nodeResults: NodeResult[]; durationMs: number };
+
+export interface ExecutionDeps {
+    fetch: typeof fetch;
+}
+
+export interface HandlerContext {
+    outputs: Map<string, unknown>;
+    fetch: typeof fetch;
+}
+
+export interface HandlerResult {
+    output: unknown;
+    branch?: "true" | "false";
+}

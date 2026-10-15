@@ -14,7 +14,9 @@ export const PositionSchema = z.object({ x: z.number(), y: z.number() });
 
 // Champs communs à tous les nœuds
 const nodeBase = {
-  id: z.string().min(1).max(64),
+  id: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{1,64}$/, "Identifiant invalide (lettres, chiffres, _ et - uniquement)"),
   name: z.string().min(1).max(100),
   position: PositionSchema,
 };
