@@ -40,4 +40,12 @@ describe("WorkflowGraphSchema", () => {
     }));
     expect(WorkflowGraphSchema.safeParse({ nodes, edges: [] }).success).toBe(false);
   });
+
+  it("rejette un identifiant de nœud contenant un point", () => {
+    const bad = {
+      ...demoWorkflow,
+      nodes: [{ ...demoWorkflow.nodes[0], id: "a.b" }],
+    };
+    expect(WorkflowGraphSchema.safeParse(bad).success).toBe(false);
+  });
 });
