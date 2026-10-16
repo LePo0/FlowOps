@@ -7,8 +7,12 @@ export const NodeStatusSchema = z.enum(["SUCCESS", "FAILED", "SKIPPED"]);
 export const NodeResultSchema = z.object({
   nodeId: z.string(),
   status: NodeStatusSchema,
+  // Ce que le nœud a réellement utilisé : requête envoyée (après {{références}}), valeur testée
+  input: z.unknown().optional(),
   output: z.unknown().optional(),
   error: z.string().optional(),
+  // Causes techniques de l'erreur, pour le débogage
+  errorDetail: z.string().optional(),
   durationMs: z.number(),
 });
 

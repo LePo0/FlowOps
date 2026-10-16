@@ -24,8 +24,12 @@ export type NodeStatus = "SUCCESS" | "FAILED" | "SKIPPED";
 export interface NodeResult {
   nodeId: string;
   status: NodeStatus;
+  // Ce que le nœud a réellement utilisé (requête envoyée, valeur testée), pour le débogage
+  input?: unknown;
   output?: unknown;
   error?: string;
+  // Causes techniques de l'erreur (nom, message, code), sans stack trace
+  errorDetail?: string;
   durationMs: number;
 }
 
@@ -43,6 +47,7 @@ export interface HandlerContext {
 }
 
 export interface HandlerResult {
+  input?: unknown;
   output: unknown;
   branch?: "true" | "false";
 }

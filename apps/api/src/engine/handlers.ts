@@ -1,90 +1,114 @@
 import type { ConditionNode, HttpNode, TransformNode, WorkflowNode } from "@flowops/shared";
+import { compare } from "./compare.js";
+import { describeFetchError } from "./http-errors.js";
+import { NodeError } from "./node-error.js";
 import { resolveReference } from "./resolve-reference.js";
+import { interpolate } from "./template.js";
+import { applyTransform } from "./transform.js";
 import type { HandlerContext, HandlerResult } from "./types.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_CHARS = 1_000_000;
 
+// En-têtes dont la valeur ne doit pas réapparaître dans le détail d'exécution
+const SENSITIVE_HEADER = /authorization|cookie|token|secret|api[-_]?key/i;
+
+function maskHeaders(headers: Record<string, string> | undefined) {
+  if (headers === undefined) return undefined;
+  return Object.fromEntries(
+    Object.entries(headers).map(([name, value]) => [
+      name,
+      SENSITIVE_HEADER.test(name) ? "***" : value,
+    ]),
+  );
+}
+
 async function runHttp(node: HttpNode, ctx: HandlerContext): Promise<HandlerResult> {
-  const { method, url, headers, body, timeoutMs } = node.config;
+  const { method, timeoutMs } = node.config;
+  const timeout = timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  const response = await ctx.fetch(url, {
-    method,
-    headers,
-    body: method === "GET" ? undefined : body,
-    signal: AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS),
-  });
+  // Les {{références}} sont résolues avant l'appel : l'entrée montre la requête réelle
+  let url: string;
+  let headers: Record<string, string> | undefined;
+  let body: string | undefined;
+  try {
+    url = interpolate(node.config.url, ctx.outputs);
+    headers =
+      node.config.headers &&
+      Object.fromEntries(
+        Object.entries(node.config.headers).map(([name, value]) => [
+          name,
+          interpolate(value, ctx.outputs),
+        ]),
+      );
+    body =
+      method === "GET" || node.config.body === undefined
+        ? undefined
+        : interpolate(node.config.body, ctx.outputs);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Pas de cause jointe : le message suffit, le détail le répéterait
+    throw new NodeError(message, { input: { method, url: node.config.url } });
+  }
+  const input = { method, url, headers: maskHeaders(headers), body };
 
-  const text = await response.text();
+  let response: Response;
+  let text: string;
+  try {
+    response = await ctx.fetch(url, {
+      method,
+      headers,
+      body,
+      signal: AbortSignal.timeout(timeout),
+    });
+    // La lecture du corps est couverte par le même délai
+    text = await response.text();
+  } catch (error) {
+    let message = describeFetchError(error, timeout);
+    // Erreur fréquente : une référence écrite sans accolades (http1.body.url)
+    const firstSegment = url.split(".")[0];
+    if (message === "URL invalide" && firstSegment !== undefined && ctx.outputs.has(firstSegment)) {
+      message = `URL invalide. Pour utiliser une valeur d'un nœud, écrivez {{${url}}}`;
+    }
+    throw new NodeError(message, { input, cause: error });
+  }
+
   if (text.length > MAX_RESPONSE_CHARS) {
-    throw new Error("Réponse trop volumineuse");
+    throw new NodeError("Réponse trop volumineuse", { input });
   }
 
   let parsedBody: unknown = text;
   if (response.headers.get("content-type")?.includes("json")) {
     try {
       parsedBody = JSON.parse(text);
-    } catch {
-      throw new Error("Réponse JSON invalide");
+    } catch (error) {
+      throw new NodeError("Réponse JSON invalide", { input, cause: error });
     }
   }
 
   // Un statut 4xx/5xx n'est pas une erreur du moteur : la condition décidera
-  return { output: { status: response.status, ok: response.ok, body: parsedBody } };
-}
-
-function evaluate(
-  left: unknown,
-  operator: ConditionNode["config"]["operator"],
-  right: string | number | boolean | undefined,
-): boolean {
-  switch (operator) {
-    case "eq":
-      return left === right;
-    case "neq":
-      return left !== right;
-    case "gt":
-    case "lt": {
-      if (typeof left !== "number" || typeof right !== "number") {
-        throw new Error(`L'opérateur ${operator} nécessite deux nombres`);
-      }
-      return operator === "gt" ? left > right : left < right;
-    }
-    case "contains":
-      if (typeof left === "string" && typeof right === "string") return left.includes(right);
-      if (Array.isArray(left)) return left.includes(right);
-      return false;
-    case "exists":
-      return left !== undefined && left !== null;
-  }
+  return { input, output: { status: response.status, ok: response.ok, body: parsedBody } };
 }
 
 function runCondition(node: ConditionNode, ctx: HandlerContext): Promise<HandlerResult> {
   const { left, operator, right } = node.config;
-  const result = evaluate(resolveReference(left, ctx.outputs), operator, right);
-  return Promise.resolve({ output: { result }, branch: result ? "true" : "false" });
-}
+  const value = resolveReference(left, ctx.outputs);
+  // null plutôt qu'undefined : la valeur reste visible une fois la réponse sérialisée en JSON
+  const input = { value: value ?? null };
 
-function pickFields(item: unknown, fields: string[]): Record<string, unknown> {
-  if (item === null || typeof item !== "object" || Array.isArray(item)) {
-    throw new Error("pick nécessite des objets");
+  let result: boolean;
+  try {
+    result = compare(value, operator, right);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new NodeError(message, { input });
   }
-  const source = item as Record<string, unknown>;
-  // fromEntries définit des propriétés propres : pas de risque avec "__proto__"
-  return Object.fromEntries(
-    fields.filter((field) => Object.hasOwn(source, field)).map((field) => [field, source[field]]),
-  );
+  return Promise.resolve({ input, output: { result }, branch: result ? "true" : "false" });
 }
 
 function runTransform(node: TransformNode, ctx: HandlerContext): Promise<HandlerResult> {
-  const { source, pick } = node.config;
-  const value = resolveReference(source, ctx.outputs);
-
-  if (pick === undefined) return Promise.resolve({ output: value });
-  if (Array.isArray(value)) {
-    return Promise.resolve({ output: value.map((item) => pickFields(item, pick)) });
-  }
-  return Promise.resolve({ output: pickFields(value, pick) });
+  const { source, ...options } = node.config;
+  return Promise.resolve(applyTransform(resolveReference(source, ctx.outputs), options));
 }
 
 export function runHandler(node: WorkflowNode, ctx: HandlerContext): Promise<HandlerResult> {

@@ -10,6 +10,8 @@ _Dernière mise à jour : 16 octobre 2026._
 - [x] Schémas Zod du workflow, workflow de démonstration (`packages/shared`)
 - [x] `validateGraph` et tri topologique
 - [x] Exécution des nœuds (trigger, HTTP, condition, transform), branches, politique d'échec
+- [x] Nœud HTTP : `{{références}}` dans l'URL, les en-têtes et le corps ; détail de chaque exécution
+- [x] Transformation : filtre, champ à extraire, chemins imbriqués
 
 ## À faire, dans l'ordre
 
@@ -44,7 +46,7 @@ _Dernière mise à jour : 16 octobre 2026._
 
 ### 5. Sécurité du nœud HTTP
 
-- [ ] Blocage des adresses locales et privées (SSRF)
+- [ ] Blocage des adresses locales et privées (SSRF), y compris pour les URL construites avec des `{{références}}` : une API tierce peut renvoyer une adresse interne
 - [ ] Revalidation des redirections
 - [ ] Lecture de la réponse en flux avec limite de taille
 - [ ] Durée maximale d'une exécution

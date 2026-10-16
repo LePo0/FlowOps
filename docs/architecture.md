@@ -31,7 +31,10 @@ flowchart LR
 - Les ids de nœuds suivent `^[A-Za-z0-9_-]{1,64}$` : pas de point, car les références se découpent dessus.
 - Le modèle est **indépendant de React Flow**. Le front convertit avec `toGraph()` / `fromGraph()` (voir section 5).
 
-Les références entre nœuds ont la forme `idDuNoeud.chemin.vers.valeur` (ex. `http1.body.products`).
+Les références entre nœuds ont la forme `idDuNoeud.chemin.vers.valeur` (ex. `http1.body.products`). Un indice de liste s'écrit comme un champ : `http1.body.results.0.name`.
+
+- Dans la condition (`left`) et la transformation (`source`), le champ entier est une référence.
+- Dans le nœud HTTP (URL, valeurs d'en-têtes, corps), les références s'insèrent dans le texte entre accolades : `{{http1.body.results.0.url}}`, `https://api.dev/users/{{transform-1}}`. Une valeur objet ou liste est insérée en JSON, sans encodage d'URL. Une référence vide fait échouer le nœud avec un message explicite.
 
 Le package contient aussi :
 
@@ -72,7 +75,13 @@ Un handler par type de nœud, contrat commun : il reçoit le nœud et un context
 
 - Le `fetch` est **injecté** : les tests n'appellent jamais le réseau.
 - Un statut HTTP 4xx/5xx n'est **pas** une erreur du moteur. Le nœud réussit, et c'est la condition qui décide.
+- La transformation (`transform.ts`) applique à sa source, dans l'ordre : un **filtre** optionnel sur les éléments d'une liste (mêmes opérateurs et même comparaison stricte que la condition, `compare.ts`), puis **soit** des champs à conserver (chemins imbriqués acceptés, structure gardée : `ability.name` → `{ ability: { name } }`), **soit** un champ à extraire (une valeur par élément : `["overgrow", "chlorophyll"]`). Un champ absent de tous les éléments est une erreur : c'est presque toujours une faute de frappe. Pas de boucle : appeler une URL par élément reste hors périmètre.
 - Échecs du nœud HTTP : erreur réseau, timeout, réponse trop grosse, JSON invalide.
+- `fetch` ne lève qu'un `fetch failed` générique : `http-errors.ts` lit la `cause` et produit un message clair (certificat non reconnu, domaine introuvable, connexion refusée, délai dépassé, URL invalide…). Ce niveau de détail sert d'oracle pour sonder un réseau interne : à revoir avec la protection SSRF.
+- Chaque résultat de nœud peut porter, en plus de `output` et `error` :
+  - `input` : ce que le nœud a réellement utilisé. Pour le nœud HTTP, la requête envoyée après résolution des `{{références}}`, avec les en-têtes sensibles (`Authorization`, `Cookie`, `*token*`, `*api-key*`…) masqués ; pour la condition, la valeur testée.
+  - `errorDetail` : la chaîne des causes techniques (nom, message, code), sans stack trace.
+    Un handler qui échoue lève une `NodeError` pour transmettre `input` au moteur.
 
 ### Règle des branches et politique d'échec
 
@@ -85,6 +94,8 @@ Un handler par type de nœud, contrat commun : il reçoit le nœud et un context
 `createApp({ fetch, nodeEnv? })` construit l'application Express. Le `fetch` est injecté jusqu'au moteur, ce qui permet aux tests Supertest de ne jamais toucher le réseau. `app.ts` exporte aussi un `app` par défaut construit avec le `fetch` global, utilisé par `index.ts`.
 
 Organisation : une route par module (`src/modules/<nom>/` : routeur + schémas), middlewares transverses dans `src/middleware/`.
+
+En développement, `npm run dev:api` lance Node avec `--use-system-ca` : Node fait alors confiance au magasin de certificats du système, en plus des siens. Sans cette option, derrière un proxy d'entreprise qui inspecte le HTTPS, toutes les requêtes du nœud HTTP échouent avec « Certificat TLS non reconnu ».
 
 | Route           | Rôle                                                                           |
 | --------------- | ------------------------------------------------------------------------------ |
