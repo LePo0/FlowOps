@@ -7,8 +7,9 @@ export default defineConfig({
   plugins: [react(), babel({ presets: [reactCompilerPreset()] })],
   server: {
     // Le front appelle /api sur sa propre origine : pas de CORS à gérer en local
+    // API_URL permet de viser une autre instance (ex. une seconde API locale sur un autre port)
     proxy: {
-      "/api": "http://localhost:3000",
+      "/api": process.env.API_URL ?? "http://localhost:3000",
     },
   },
 });

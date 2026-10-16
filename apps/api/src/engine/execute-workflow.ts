@@ -1,5 +1,6 @@
 import { topologicalSort, type WorkflowEdge } from "@flowops/shared";
 import { runHandler } from "./handlers.js";
+import { NodeError, technicalDetail } from "./node-error.js";
 import type { ExecutionDeps, ExecutionResult, HandlerContext, NodeResult } from "./types.js";
 import { validateGraph } from "./validate-graph.js";
 
@@ -57,6 +58,7 @@ export async function executeWorkflow(
       nodeResults.push({
         nodeId: id,
         status: "SUCCESS",
+        input: result.input,
         output: result.output,
         durationMs: Math.round(performance.now() - start),
       });
@@ -65,7 +67,9 @@ export async function executeWorkflow(
       nodeResults.push({
         nodeId: id,
         status: "FAILED",
+        input: error instanceof NodeError ? error.input : undefined,
         error: error instanceof Error ? error.message : String(error),
+        errorDetail: technicalDetail(error),
         durationMs: Math.round(performance.now() - start),
       });
     }

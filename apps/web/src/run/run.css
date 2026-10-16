@@ -81,6 +81,24 @@
   color: var(--danger);
 }
 
+.run-result__details summary {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.run-result__details[open] summary {
+  margin-bottom: 6px;
+}
+
+.run-result__subtitle {
+  margin: 8px 0 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .run-result__output {
   max-height: 240px;
   margin: 0;

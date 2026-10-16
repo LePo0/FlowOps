@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { demoWorkflow } from "@flowops/shared";
+import { sampleWorkflow } from "@flowops/shared";
 import { postRun } from "./api.ts";
 
 function respond(status: number, body: unknown) {
@@ -22,18 +22,18 @@ describe("postRun", () => {
     };
     const fetchMock = respond(200, result);
 
-    const outcome = await postRun(demoWorkflow, fetchMock);
+    const outcome = await postRun(sampleWorkflow, fetchMock);
 
     expect(outcome).toEqual({ kind: "executed", result });
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe("/api/run");
-    expect(JSON.parse(String(init?.body))).toEqual({ graph: demoWorkflow });
+    expect(JSON.parse(String(init?.body))).toEqual({ graph: sampleWorkflow });
   });
 
   it("transmet les erreurs de l'API avec leurs codes", async () => {
     const errors = [{ code: "CYCLE", message: "Le workflow contient un cycle" }];
 
-    expect(await postRun(demoWorkflow, respond(400, { errors }))).toEqual({
+    expect(await postRun(sampleWorkflow, respond(400, { errors }))).toEqual({
       kind: "rejected",
       errors,
     });
@@ -44,29 +44,29 @@ describe("postRun", () => {
       throw new TypeError("Failed to fetch");
     });
 
-    expect((await postRun(demoWorkflow, failing)).kind).toBe("unavailable");
+    expect((await postRun(sampleWorkflow, failing)).kind).toBe("unavailable");
   });
 
   it("signale une réponse qui ne respecte pas le contrat", async () => {
-    expect(await postRun(demoWorkflow, respond(200, { status: "OK" }))).toMatchObject({
+    expect(await postRun(sampleWorkflow, respond(200, { status: "OK" }))).toMatchObject({
       kind: "unavailable",
       message: "Réponse inattendue de l'API.",
     });
   });
 
   it("explique une route absente et une erreur sans corps JSON", async () => {
-    expect(await postRun(demoWorkflow, respond(404, "Not Found"))).toMatchObject({
+    expect(await postRun(sampleWorkflow, respond(404, "Not Found"))).toMatchObject({
       kind: "unavailable",
       message: expect.stringContaining("désactivée en production"),
     });
-    expect(await postRun(demoWorkflow, respond(500, ""))).toMatchObject({
+    expect(await postRun(sampleWorkflow, respond(500, ""))).toMatchObject({
       kind: "unavailable",
       message: expect.stringContaining("HTTP 500"),
     });
   });
 
   it("reconnaît une API arrêtée derrière le proxy Vite (502)", async () => {
-    expect(await postRun(demoWorkflow, respond(502, ""))).toMatchObject({
+    expect(await postRun(sampleWorkflow, respond(502, ""))).toMatchObject({
       kind: "unavailable",
       message: expect.stringContaining("npm run dev:api"),
     });

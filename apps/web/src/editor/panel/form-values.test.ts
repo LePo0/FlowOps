@@ -74,4 +74,27 @@ describe("validateNode", () => {
   it("signale un champ obligatoire vide à son chemin", () => {
     expect(validateNode(httpNode(""))).toEqual({ "config.url": "Champ obligatoire" });
   });
+
+  const transformNode = (config: Record<string, unknown>): FlowNode => ({
+    id: "transform-1",
+    type: "transform",
+    position: { x: 0, y: 0 },
+    data: {
+      type: "transform",
+      name: "Transformation",
+      config: { source: "http1.body.abilities", ...config },
+    },
+  });
+
+  it("signale un champ de filtre vide", () => {
+    expect(
+      validateNode(transformNode({ filter: { field: "", operator: "eq", value: false } })),
+    ).toEqual({ "config.filter.field": "Champ obligatoire" });
+  });
+
+  it("refuse de combiner champs à conserver et champ à extraire", () => {
+    expect(validateNode(transformNode({ pick: ["slot"], extract: "ability.name" }))).toEqual({
+      "config.extract": "Choisissez des champs à conserver ou un champ à extraire, pas les deux",
+    });
+  });
 });

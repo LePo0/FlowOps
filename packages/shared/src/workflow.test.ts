@@ -1,15 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { MAX_NODES, WorkflowGraphSchema, demoWorkflow } from "./index.js";
+import {
+  MAX_NODES,
+  TransformNodeSchema,
+  WorkflowGraphSchema,
+  demoWorkflow,
+  sampleWorkflow,
+} from "./index.js";
 
 describe("WorkflowGraphSchema", () => {
-  it("accepte le workflow de démonstration", () => {
+  it("accepte le workflow de démonstration de l'éditeur", () => {
     expect(WorkflowGraphSchema.safeParse(demoWorkflow).success).toBe(true);
   });
 
   it("rejette un type de nœud inconnu", () => {
     const bad = {
-      ...demoWorkflow,
-      nodes: [{ ...demoWorkflow.nodes[0], type: "inconnu" }],
+      ...sampleWorkflow,
+      nodes: [{ ...sampleWorkflow.nodes[0], type: "inconnu" }],
     };
     expect(WorkflowGraphSchema.safeParse(bad).success).toBe(false);
   });
@@ -43,9 +49,40 @@ describe("WorkflowGraphSchema", () => {
 
   it("rejette un identifiant de nœud contenant un point", () => {
     const bad = {
-      ...demoWorkflow,
-      nodes: [{ ...demoWorkflow.nodes[0], id: "a.b" }],
+      ...sampleWorkflow,
+      nodes: [{ ...sampleWorkflow.nodes[0], id: "a.b" }],
     };
     expect(WorkflowGraphSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe("TransformNodeSchema", () => {
+  const transform = (config: Record<string, unknown>) => ({
+    id: "t1",
+    type: "transform",
+    name: "Transformation",
+    position: { x: 0, y: 0 },
+    config: { source: "http1.body.abilities", ...config },
+  });
+
+  it("accepte un filtre et un champ à extraire", () => {
+    const node = transform({
+      filter: { field: "is_hidden", operator: "eq", value: false },
+      extract: "ability.name",
+    });
+    expect(TransformNodeSchema.safeParse(node).success).toBe(true);
+  });
+
+  it("refuse de combiner champs à conserver et champ à extraire", () => {
+    const result = TransformNodeSchema.safeParse(
+      transform({ pick: ["slot"], extract: "ability.name" }),
+    );
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["config", "extract"]);
+  });
+
+  it("refuse un filtre sans champ", () => {
+    const node = transform({ filter: { field: "", operator: "exists" } });
+    expect(TransformNodeSchema.safeParse(node).success).toBe(false);
   });
 });

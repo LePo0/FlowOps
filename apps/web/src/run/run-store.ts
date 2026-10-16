@@ -21,6 +21,9 @@ const FIELD_LABELS: Partial<Record<string, string>> = {
   "config.right": "valeur attendue",
   "config.source": "source",
   "config.pick": "champs à conserver",
+  "config.extract": "champ à extraire",
+  "config.filter.field": "champ filtré",
+  "config.filter.value": "valeur du filtre",
 };
 
 // Contrôle avant envoi : un champ manquant est signalé sans appeler l'API

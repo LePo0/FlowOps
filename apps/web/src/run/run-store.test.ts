@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { demoWorkflow, type RunResult } from "@flowops/shared";
+import { sampleWorkflow, type RunResult } from "@flowops/shared";
 import { fromGraph } from "../editor/graph.ts";
 import type { RunOutcome } from "./api.ts";
 import { createRunStore } from "./run-store.ts";
 
-const { nodes, edges } = fromGraph(demoWorkflow);
+const { nodes, edges } = fromGraph(sampleWorkflow);
 
 const executed: RunResult = {
   status: "FAILED",
@@ -24,7 +24,7 @@ describe("useRunStore", () => {
 
     await store.getState().run(nodes, edges);
 
-    expect(runApi).toHaveBeenCalledWith(demoWorkflow);
+    expect(runApi).toHaveBeenCalledWith(sampleWorkflow);
     expect(store.getState().running).toBe(false);
     expect(store.getState().resultsByNode["http1"]?.error).toBe("fetch failed");
     expect(store.getState().resultsByNode["names"]?.status).toBe("SKIPPED");
