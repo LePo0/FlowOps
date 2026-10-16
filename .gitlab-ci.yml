@@ -32,3 +32,8 @@ test:
   stage: check
   script:
     - npm run test
+
+format:
+  stage: check
+  script:
+    - npm run format:check
