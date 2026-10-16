@@ -1,0 +1,78 @@
+// Schéma de persistance de FlowOps. Voir docs/architecture.md, section Persistance.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "esm"
+  // Imports internes en .js, comme le reste de l'API (modules ES)
+  importFileExtension    = "js"
+  generatedFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String     @id @default(uuid()) @db.Uuid
+  email     String     @unique
+  name      String?
+  createdAt DateTime   @default(now())
+  workflows Workflow[]
+}
+
+model Workflow {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  // Graphe au format WorkflowGraph (packages/shared), validé avec Zod avant écriture
+  graphJson Json
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  runs      WorkflowRun[]
+
+  @@index([userId, updatedAt])
+}
+
+enum RunStatus {
+  SUCCESS
+  FAILED
+}
+
+model WorkflowRun {
+  id         String    @id @default(uuid()) @db.Uuid
+  workflowId String    @db.Uuid
+  workflow   Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  status     RunStatus
+  // Copie du graphe exécuté : l'historique reste cohérent si le workflow change ensuite
+  graphJson  Json
+  startedAt  DateTime
+  durationMs Int
+  nodeRuns   NodeRun[]
+
+  @@index([workflowId, startedAt])
+}
+
+enum NodeStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model NodeRun {
+  id          String      @id @default(uuid()) @db.Uuid
+  runId       String      @db.Uuid
+  run         WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  // Ordre d'exécution (tri topologique) : l'historique s'affiche dans le même ordre
+  position    Int
+  nodeId      String
+  status      NodeStatus
+  input       Json?
+  output      Json?
+  error       String?
+  errorDetail String?
+  durationMs  Int
+
+  @@unique([runId, position])
+}
