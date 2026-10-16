@@ -1,6 +1,5 @@
-import type { WorkflowEdge } from "@flowops/shared";
+import { topologicalSort, type WorkflowEdge } from "@flowops/shared";
 import { runHandler } from "./handlers.js";
-import { topologicalSort } from "./topological-sort.js";
 import type { ExecutionDeps, ExecutionResult, HandlerContext, NodeResult } from "./types.js";
 import { validateGraph } from "./validate-graph.js";
 
