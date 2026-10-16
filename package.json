@@ -5,6 +5,9 @@
     "apps/*",
     "packages/*"
   ],
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev:web": "npm run dev -w web",
     "dev:api": "npm run dev -w api",
@@ -12,7 +15,10 @@
     "lint": "eslint . && npm run lint -w web",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:start": "node scripts/db.mjs start",
+    "db:stop": "node scripts/db.mjs stop",
+    "db:status": "node scripts/db.mjs status"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -21,5 +27,10 @@
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
     "typescript-eslint": "^8.71.2"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.1": true,
+    "prisma@7.10.1": true,
+    "esbuild@0.28.2": true
   }
 }

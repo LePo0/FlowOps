@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 *.env
+
+# Client Prisma généré (npm run db:generate, ou automatiquement à l'installation)
+apps/api/src/generated/
