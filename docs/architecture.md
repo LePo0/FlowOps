@@ -163,16 +163,42 @@ Principes :
 | Durée maximale globale d'une exécution              | À venir                                          |
 | Secrets (tokens) hors du JSON du graphe et des logs | À venir                                          |
 
-## 7. Persistance (à venir)
+## 7. Persistance
 
-Quatre tables prévues :
+PostgreSQL et Prisma 7 (`apps/api/prisma/schema.prisma`). Prisma 7 se connecte via le pilote `pg` (`@prisma/adapter-pg`) ; le client est généré dans `apps/api/src/generated/prisma` (ignoré par Git, régénéré à chaque `npm install`).
 
-- `User` : identité.
-- `Workflow` : `userId`, `name`, `graphJson` (JSONB).
-- `WorkflowRun` : statut, dates, erreur, **copie du graphe exécuté** (l'historique reste cohérent même si le workflow est modifié).
-- `NodeRun` : un enregistrement par nœud (statut, entrée, sortie, erreur, durée).
+| Table         | Contenu                                                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `User`        | Identité (`email` unique). Présent dès maintenant pour que l'authentification n'impose pas de migrer toutes les tables |
+| `Workflow`    | `userId`, `name`, `graphJson` (JSONB, validé avec le schéma Zod partagé avant écriture), dates                         |
+| `WorkflowRun` | Statut, début, durée, **copie du graphe exécuté** : l'historique reste cohérent même si le workflow est modifié        |
+| `NodeRun`     | Un enregistrement par nœud, dans l'ordre d'exécution : statut, entrée, sortie, erreur, détail technique, durée         |
 
-Un utilisateur ne voit que ses propres workflows et exécutions.
+Suppressions en cascade : un utilisateur emporte ses workflows, un workflow ses exécutions. Un utilisateur ne voit que ses propres workflows et exécutions.
+
+### Base locale
+
+Le poste de développement n'a pas les droits administrateur sur l'instance PostgreSQL installée par le portail d'entreprise. FlowOps utilise donc **sa propre instance**, avec les programmes de cette installation et un dossier de données appartenant à l'utilisateur :
+
+- données dans `%LOCALAPPDATA%\flowops-postgres\data`, **hors de OneDrive** (la synchronisation corromprait la base) ;
+- port **5433**, pour ne pas gêner l'instance du portail sur le 5432 ;
+- `npm run db:start`, `db:stop`, `db:status` (`scripts/db.mjs`, chemins modifiables avec `PG_BIN` et `PG_DATA`) ;
+- rôle `flowops` (droit `CREATEDB`, nécessaire à la base temporaire de `prisma migrate dev`), bases `flowops` et `flowops_test` ; URL dans `apps/api/.env`.
+
+Création de l'instance, une seule fois (PowerShell) :
+
+```powershell
+$bin = "C:\Program Files\PostgreSQL\18\bin"; $root = "$env:LOCALAPPDATA\flowops-postgres"
+New-Item -ItemType Directory -Force $root | Out-Null
+# Choisir un mot de passe pour le superutilisateur postgres de cette instance, dans $root\superuser-password.txt
+& "$bin\initdb.exe" -D "$root\data" -U postgres --pwfile="$root\superuser-password.txt" --auth=scram-sha-256 -E UTF8 --no-locale
+Add-Content "$root\data\postgresql.conf" "port = 5433`nlisten_addresses = 'localhost'"
+npm run db:start
+# Puis, connecté en postgres sur le port 5433 : CREATE ROLE flowops LOGIN PASSWORD '…' CREATEDB;
+# CREATE DATABASE flowops OWNER flowops; CREATE DATABASE flowops_test OWNER flowops;
+```
+
+Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et applique une migration, `npm run db:generate -w api` régénère le client.
 
 ## 8. Qualité et livraison
 

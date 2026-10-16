@@ -33,8 +33,8 @@ _Dernière mise à jour : 16 octobre 2026._
 
 ### 3. Persistance
 
-- [ ] Choix de la base (hébergée gratuite, Postgres portable ou service CI)
-- [ ] Prisma : `User`, `Workflow`, `WorkflowRun`, `NodeRun`, migrations
+- [x] Choix de la base : PostgreSQL 18 en local (instance utilisateur sur le port 5433), service `postgres` en CI à venir avec les tests d'intégration
+- [x] Prisma : `User`, `Workflow`, `WorkflowRun`, `NodeRun`, migrations
 - [ ] CRUD des workflows
 - [ ] Historique des exécutions
 
