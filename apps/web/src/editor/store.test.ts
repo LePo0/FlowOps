@@ -1,16 +1,16 @@
 import { beforeEach, describe, it, expect } from "vitest";
-import { demoWorkflow } from "@flowops/shared";
+import { sampleWorkflow } from "@flowops/shared";
 import { useEditorStore } from "./store.ts";
 
 const store = () => useEditorStore.getState();
 
 describe("useEditorStore", () => {
   beforeEach(() => {
-    store().loadGraph(demoWorkflow);
+    store().loadGraph(sampleWorkflow);
   });
 
-  it("démarre avec le workflow de démo", () => {
-    expect(store().getGraph()).toEqual(demoWorkflow);
+  it("restitue à l'identique le graphe chargé", () => {
+    expect(store().getGraph()).toEqual(sampleWorkflow);
   });
 
   it("ajoute un nœud avec un identifiant libre et une config par défaut", () => {
@@ -84,7 +84,7 @@ describe("useEditorStore", () => {
   it("ignore une connexion invalide (ici un cycle)", () => {
     store().onConnect({ source: "names", sourceHandle: null, target: "http1", targetHandle: null });
 
-    expect(store().getGraph().edges).toEqual(demoWorkflow.edges);
+    expect(store().getGraph().edges).toEqual(sampleWorkflow.edges);
   });
 
   it("met à jour les données d'un nœud", () => {

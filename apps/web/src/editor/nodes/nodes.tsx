@@ -97,13 +97,23 @@ export function ConditionNode({ id, data }: NodeProps<FlowNodeOf<"condition">>) 
 }
 
 export function TransformNode({ id, data }: NodeProps<FlowNodeOf<"transform">>) {
-  const { source, pick } = data.config;
+  const { source, filter, pick, extract } = data.config;
   return (
     <>
       <Handle type="target" position={Position.Left} />
       <NodeCard id={id} type="transform" name={data.name}>
         {source || <Missing label="source à renseigner" />}
+        {filter !== undefined && (
+          <>
+            <br />
+            si {filter.field || "…"} {OPERATOR_SYMBOLS[filter.operator]}
+            {filter.operator !== "exists" && filter.value !== undefined && (
+              <> {typeof filter.value === "string" ? `"${filter.value}"` : String(filter.value)}</>
+            )}
+          </>
+        )}
         {pick !== undefined && pick.length > 0 && <> → {pick.join(", ")}</>}
+        {extract !== undefined && extract !== "" && <> → [{extract}]</>}
       </NodeCard>
       <Handle type="source" position={Position.Right} />
     </>

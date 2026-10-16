@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import request from "supertest";
-import { demoWorkflow } from "@flowops/shared";
+import { sampleWorkflow } from "@flowops/shared";
 import { createApp } from "../../app.js";
 
 function jsonFetch(status: number, body: unknown) {
@@ -18,10 +18,10 @@ function devApp(fetchImpl: typeof fetch) {
 }
 
 describe("POST /api/run", () => {
-  it("exécute le workflow de démo et répond 200 avec les résultats par nœud", async () => {
+  it("exécute le workflow d'exemple et répond 200 avec les résultats par nœud", async () => {
     const fetchMock = jsonFetch(200, { products: [{ id: 1, title: "A", price: 10 }] });
 
-    const res = await request(devApp(fetchMock)).post("/api/run").send({ graph: demoWorkflow });
+    const res = await request(devApp(fetchMock)).post("/api/run").send({ graph: sampleWorkflow });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("SUCCESS");
@@ -47,7 +47,7 @@ describe("POST /api/run", () => {
 
   it("répond 400 avec le code CYCLE pour un graphe cyclique", async () => {
     const fetchMock = jsonFetch(200, {});
-    const graph = structuredClone(demoWorkflow);
+    const graph = structuredClone(sampleWorkflow);
     graph.edges.push({ id: "e4", source: "names", target: "http1" });
 
     const res = await request(devApp(fetchMock)).post("/api/run").send({ graph });
@@ -59,15 +59,24 @@ describe("POST /api/run", () => {
 
   it("répond 200 avec status FAILED sur une erreur réseau", async () => {
     const failingFetch = vi.fn<typeof fetch>(async () => {
-      throw new Error("ECONNREFUSED");
+      // Même forme que fetch (undici) : la raison réelle est dans `cause`
+      throw new TypeError("fetch failed", {
+        cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
+      });
     });
 
-    const res = await request(devApp(failingFetch)).post("/api/run").send({ graph: demoWorkflow });
+    const res = await request(devApp(failingFetch))
+      .post("/api/run")
+      .send({ graph: sampleWorkflow });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("FAILED");
     expect(res.body.nodeResults).toContainEqual(
-      expect.objectContaining({ nodeId: "http1", status: "FAILED", error: "ECONNREFUSED" }),
+      expect.objectContaining({
+        nodeId: "http1",
+        status: "FAILED",
+        error: "Connexion refusée par le serveur (ECONNREFUSED)",
+      }),
     );
   });
 
@@ -84,7 +93,7 @@ describe("POST /api/run", () => {
   it("répond 413 pour un corps de plus de 1 Mo", async () => {
     const res = await request(devApp(jsonFetch(200, {})))
       .post("/api/run")
-      .send({ graph: demoWorkflow, padding: "x".repeat(1024 * 1024) });
+      .send({ graph: sampleWorkflow, padding: "x".repeat(1024 * 1024) });
 
     expect(res.status).toBe(413);
     expect(res.body.errors[0].code).toBe("PAYLOAD_TOO_LARGE");
@@ -94,7 +103,7 @@ describe("POST /api/run", () => {
     const fetchMock = jsonFetch(200, {});
     const app = createApp({ fetch: fetchMock, nodeEnv: "production" });
 
-    const res = await request(app).post("/api/run").send({ graph: demoWorkflow });
+    const res = await request(app).post("/api/run").send({ graph: sampleWorkflow });
 
     expect(res.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();

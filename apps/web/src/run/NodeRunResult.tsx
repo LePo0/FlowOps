@@ -1,13 +1,13 @@
 import { STATUS_LABELS } from "../editor/labels.ts";
 import { useRunStore } from "./run-store.ts";
 
-// Au-delà, la sortie est tronquée : une réponse HTTP peut faire jusqu'à 1 Mo
-const MAX_OUTPUT_CHARS = 5_000;
+// Au-delà, le texte est tronqué : une réponse HTTP peut faire jusqu'à 1 Mo
+const MAX_CHARS = 5_000;
 
-function formatOutput(output: unknown): string {
-  const text = JSON.stringify(output, null, 2) ?? String(output);
-  return text.length > MAX_OUTPUT_CHARS
-    ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n… (tronqué, ${text.length} caractères)`
+function formatJson(value: unknown): string {
+  const text = JSON.stringify(value, null, 2) ?? String(value);
+  return text.length > MAX_CHARS
+    ? `${text.slice(0, MAX_CHARS)}\n… (tronqué, ${text.length} caractères)`
     : text;
 }
 
@@ -15,6 +15,10 @@ function formatOutput(output: unknown): string {
 export function NodeRunResult({ nodeId }: { nodeId: string }) {
   const result = useRunStore((state) => state.resultsByNode[nodeId]);
   if (!result) return null;
+
+  const hasDetails = result.input !== undefined || result.errorDetail !== undefined;
+  // Déplié d'office en cas d'échec : c'est là qu'on cherche ce qui s'est passé
+  const failed = result.status === "FAILED";
 
   return (
     <section className="run-result" aria-label="Dernière exécution">
@@ -25,7 +29,24 @@ export function NodeRunResult({ nodeId }: { nodeId: string }) {
       </p>
       {result.error !== undefined && <p className="run-result__error">{result.error}</p>}
       {result.output !== undefined && (
-        <pre className="run-result__output">{formatOutput(result.output)}</pre>
+        <pre className="run-result__output">{formatJson(result.output)}</pre>
+      )}
+      {hasDetails && (
+        <details className="run-result__details" open={failed}>
+          <summary>Détails</summary>
+          {result.input !== undefined && (
+            <>
+              <h4 className="run-result__subtitle">Entrée utilisée</h4>
+              <pre className="run-result__output">{formatJson(result.input)}</pre>
+            </>
+          )}
+          {result.errorDetail !== undefined && (
+            <>
+              <h4 className="run-result__subtitle">Erreur technique</h4>
+              <pre className="run-result__output">{result.errorDetail}</pre>
+            </>
+          )}
+        </details>
       )}
     </section>
   );

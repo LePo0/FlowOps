@@ -80,6 +80,23 @@
   min-width: 0;
 }
 
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.field-group__legend {
+  padding: 0 4px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .field-row {
   display: grid;
   grid-template-columns: 110px 1fr;
