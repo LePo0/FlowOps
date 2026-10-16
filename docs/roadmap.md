@@ -1,6 +1,6 @@
 # Roadmap FlowOps
 
-_Dernière mise à jour : 15 octobre 2026._
+_Dernière mise à jour : 16 octobre 2026._
 
 ## Fait
 
@@ -22,12 +22,12 @@ _Dernière mise à jour : 15 octobre 2026._
 
 ### 2. Canvas React Flow
 
-- [ ] Nœuds personnalisés (un par type)
-- [ ] Validation des connexions
-- [ ] Panneau de configuration d'un nœud
-- [ ] Store Zustand, `toGraph()` / `fromGraph()`
-- [ ] Bouton « Exécuter » et statuts par nœud
-- **Jalon : parcours créer → exécuter → voir le résultat, sans base de données**
+- [x] Nœuds personnalisés (un par type)
+- [x] Validation des connexions
+- [x] Panneau de configuration d'un nœud
+- [x] Store Zustand, `toGraph()` / `fromGraph()`
+- [x] Bouton « Exécuter » et statuts par nœud
+- **Jalon : parcours créer → exécuter → voir le résultat, sans base de données** (atteint)
 
 ### 3. Persistance
 

@@ -1,0 +1,141 @@
+.panel {
+  width: 320px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.panel__empty {
+  margin: 0;
+  padding: 24px 16px;
+  color: var(--text-muted);
+}
+
+.panel__content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel__type {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.panel__type--trigger {
+  color: #2f9e44;
+}
+
+.panel__type--http {
+  color: #1971c2;
+}
+
+.panel__type--condition {
+  color: #e8590c;
+}
+
+.panel__type--transform {
+  color: #7048e8;
+}
+
+.panel__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.panel__id {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.panel__id code {
+  font-family: var(--mono);
+  color: var(--text-strong);
+}
+
+.panel__id-hint,
+.panel__note {
+  color: var(--text-muted);
+}
+
+.panel__note {
+  margin: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+}
+
+.field__label {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field__input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-strong);
+  font: inherit;
+}
+
+textarea.field__input {
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.field__input--mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.field__input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.field__input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.field__input:disabled {
+  opacity: 0.6;
+}
+
+.field__hint,
+.field__error {
+  margin: 0;
+  font-size: 12px;
+}
+
+.field__hint {
+  color: var(--text-muted);
+}
+
+.field__error {
+  color: var(--danger);
+}
