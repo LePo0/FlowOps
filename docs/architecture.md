@@ -29,9 +29,14 @@ flowchart LR
 - Quatre types de nœuds en **union discriminée** sur `type` : `trigger`, `http`, `condition`, `transform`. Chacun a son schéma de `config`.
 - Une arête peut porter une `branch` (`true` / `false`) : c'est la sortie choisie d'un nœud `condition`.
 - Les ids de nœuds suivent `^[A-Za-z0-9_-]{1,64}$` : pas de point, car les références se découpent dessus.
-- Le modèle est **indépendant de React Flow**. Le front convertira (`toGraph()` / `fromGraph()`).
+- Le modèle est **indépendant de React Flow**. Le front convertit avec `toGraph()` / `fromGraph()` (voir section 5).
 
 Les références entre nœuds ont la forme `idDuNoeud.chemin.vers.valeur` (ex. `http1.body.products`).
+
+Le package contient aussi :
+
+- `topologicalSort` (algorithme de Kahn), utilisé par le moteur et par l'éditeur pour détecter les cycles ;
+- le contrat de réponse de `POST /api/run` (`RunResultSchema`, `ApiErrorResponseSchema`) : l'API type ses réponses avec, le front les valide à la réception.
 
 ## 3. Le moteur (`apps/api/src/engine`)
 
@@ -59,7 +64,7 @@ Les erreurs sont **retournées** avec des codes stables (`CYCLE`, `UNKNOWN_NODE`
 
 ### Ordre d'exécution
 
-Algorithme de Kahn (`topological-sort.ts`), en `O(nœuds + arêtes)`. Il ordonne et détecte les cycles.
+Algorithme de Kahn (`topologicalSort`, dans `packages/shared`), en `O(nœuds + arêtes)`. Il ordonne et détecte les cycles.
 
 ### Handlers
 
@@ -99,9 +104,39 @@ Corps : `{ "graph": <WorkflowGraph> }`. Zod valide l'enveloppe, puis `executeWor
 | Corps de plus de 1 Mo                      | `413` `{ errors: [{ code: "PAYLOAD_TOO_LARGE", … }] }`                                   |
 | Erreur inattendue                          | `500` `{ errors: [{ code: "INTERNAL_ERROR", … }] }`, sans stack trace ni détail interne  |
 
-La route n'est **pas montée** si `NODE_ENV=production` : le nœud HTTP n'est pas encore protégé contre le SSRF (voir la section 5 et l'étape « Sécurité du nœud HTTP » de la roadmap).
+La route n'est **pas montée** si `NODE_ENV=production` : le nœud HTTP n'est pas encore protégé contre le SSRF (voir la section 6 et l'étape « Sécurité du nœud HTTP » de la roadmap).
 
-## 5. Limites et sécurité
+## 5. L'éditeur (`apps/web`)
+
+React Flow pour le canvas, Zustand pour l'état. En local, Vite redirige `/api` vers l'API (`localhost:3000`) : le front et l'API partagent la même origine, sans CORS à gérer.
+
+```mermaid
+flowchart LR
+  Canvas["Canvas React Flow<br/>nœuds personnalisés"] <--> Editor["useEditorStore<br/>nodes + edges"]
+  Panel["Panneau de configuration"] <--> Editor
+  Editor -->|toGraph| Run["useRunStore"]
+  Run -->|POST /api/run| Api["API"]
+  Run -->|statuts| Canvas
+  Run -->|sortie, erreur| Panel
+```
+
+| Module                       | Rôle                                                                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `editor/graph.ts`            | `fromGraph()` / `toGraph()` : la `branch` d'une arête devient la poignée de sortie (`sourceHandle`) de la condition           |
+| `editor/store.ts`            | Nœuds et arêtes, callbacks de React Flow, ajout, édition, suppression, sélection                                              |
+| `editor/connection-rules.ts` | Refuse pendant le tracé ce que le moteur rejetterait : boucle, arête vers le déclencheur, doublon, cycle, branche incohérente |
+| `editor/nodes/`              | Un composant par type de nœud ; la condition a deux sorties `true` / `false`                                                  |
+| `editor/panel/`              | Formulaire du nœud sélectionné, validé avec le schéma Zod partagé (messages en français)                                      |
+| `run/`                       | Client de `POST /api/run`, store d'exécution, statuts affichés sur les nœuds et dans le panneau                               |
+
+Principes :
+
+- **L'API reste l'autorité.** L'éditeur valide pour donner un retour immédiat (champ manquant, connexion impossible), mais l'API revalide tout le graphe à l'exécution.
+- **Un seul déclencheur** : le bouton d'ajout se désactive dès qu'il en existe un.
+- **La condition compare en strict** (`===`) : le panneau impose un type explicite (texte, nombre, booléen) pour la valeur attendue, et le nœud affiche un texte entre guillemets.
+- Les champs propres à React Flow (`selected`, `measured`, …) ne sortent jamais de l'éditeur : `toGraph()` ne garde que le contrat.
+
+## 6. Limites et sécurité
 
 | Limite                                              | État                                             |
 | --------------------------------------------------- | ------------------------------------------------ |
@@ -117,7 +152,7 @@ La route n'est **pas montée** si `NODE_ENV=production` : le nœud HTTP n'est pa
 | Durée maximale globale d'une exécution              | À venir                                          |
 | Secrets (tokens) hors du JSON du graphe et des logs | À venir                                          |
 
-## 6. Persistance (à venir)
+## 7. Persistance (à venir)
 
 Quatre tables prévues :
 
@@ -128,13 +163,13 @@ Quatre tables prévues :
 
 Un utilisateur ne voit que ses propres workflows et exécutions.
 
-## 7. Qualité et livraison
+## 8. Qualité et livraison
 
 - Tests : Vitest (+ Supertest pour l'API). Le moteur est testé sans réseau.
 - CI GitLab : `lint`, `typecheck`, `test` en parallèle, sur merge requests et sur `main`.
 - Workflow Git : `main` protégé, branches courtes, merge requests avec squash.
 - Déploiement cible (à venir) : Docker, Cloud Run, base managée, frontend sur Firebase Hosting.
 
-## 8. Décisions
+## 9. Décisions
 
 Les choix détaillés et leurs raisons sont (ou seront) dans `docs/decisions.md`.

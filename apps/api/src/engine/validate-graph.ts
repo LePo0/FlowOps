@@ -1,5 +1,4 @@
-import { WorkflowGraphSchema, type WorkflowNode } from "@flowops/shared";
-import { topologicalSort } from "./topological-sort.js";
+import { topologicalSort, WorkflowGraphSchema, type WorkflowNode } from "@flowops/shared";
 import type { ValidationError, ValidationResult } from "./types.js";
 
 export function validateGraph(input: unknown): ValidationResult {
