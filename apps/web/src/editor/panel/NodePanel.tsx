@@ -4,7 +4,8 @@ import { referenceExample, TYPE_LABELS } from "../labels.ts";
 import { useEditorStore } from "../store.ts";
 import { Field } from "./fields.tsx";
 import { validateNode } from "./form-values.ts";
-import { ConditionForm, HttpForm, TransformForm } from "./forms.tsx";
+import { ConditionForm, HttpForm } from "./forms.tsx";
+import { TransformForm } from "./transform-form.tsx";
 import "./panel.css";
 
 // Panneau latéral : configure le nœud sélectionné (un seul à la fois)

@@ -1,17 +1,12 @@
-import { CONDITION_OPERATORS, HTTP_METHODS } from "@flowops/shared";
+import { HTTP_METHODS } from "@flowops/shared";
 import type { FlowNodeData } from "../graph.ts";
-import { OPERATOR_LABELS } from "../labels.ts";
+import { Comparison } from "./comparison.tsx";
 import { DraftInput, Field } from "./fields.tsx";
 import {
-  convertRight,
   formatHeaders,
-  formatPick,
   parseHeaders,
   parseOptionalNumber,
-  parsePick,
-  rightKind,
   type FieldErrors,
-  type RightKind,
 } from "./form-values.ts";
 
 interface FormProps<T extends FlowNodeData["type"]> {
@@ -45,12 +40,19 @@ export function HttpForm({ data, errors, onChange }: FormProps<"http">) {
         )}
       </Field>
 
-      <Field label="URL" error={errors["config.url"]}>
+      <Field
+        label="URL"
+        hint="Valeur d'un nœud précédent : {{http1.body.results.0.url}}"
+        error={errors["config.url"]}
+      >
         {(id) => (
           <input
             id={id}
-            className="field__input"
-            type="url"
+            className="field__input field__input--mono"
+            // Texte et non "url" : une URL avec {{références}} n'est pas encore valide
+            type="text"
+            inputMode="url"
+            spellCheck={false}
             value={config.url}
             placeholder="https://exemple.com/api"
             aria-invalid={errors["config.url"] !== undefined}
@@ -59,7 +61,11 @@ export function HttpForm({ data, errors, onChange }: FormProps<"http">) {
         )}
       </Field>
 
-      <Field label="En-têtes" hint="Un par ligne : Nom: valeur" error={errors["config.headers"]}>
+      <Field
+        label="En-têtes"
+        hint="Un par ligne : Nom: valeur. Les {{références}} sont acceptées."
+        error={errors["config.headers"]}
+      >
         {(id) => (
           <DraftInput
             id={id}
@@ -73,7 +79,11 @@ export function HttpForm({ data, errors, onChange }: FormProps<"http">) {
 
       <Field
         label="Corps"
-        hint={config.method === "GET" ? "Ignoré pour une requête GET" : undefined}
+        hint={
+          config.method === "GET"
+            ? "Ignoré pour une requête GET"
+            : "Les {{références}} sont acceptées. Un objet ou une liste est inséré en JSON."
+        }
         error={errors["config.body"]}
       >
         {(id) => (
@@ -107,17 +117,10 @@ export function HttpForm({ data, errors, onChange }: FormProps<"http">) {
   );
 }
 
-const RIGHT_KIND_LABELS: Record<RightKind, string> = {
-  string: "Texte",
-  number: "Nombre",
-  boolean: "Booléen",
-};
-
 export function ConditionForm({ data, errors, onChange }: FormProps<"condition">) {
   const { config } = data;
   const setConfig = (patch: Partial<typeof config>) =>
     onChange({ ...data, config: { ...config, ...patch } });
-  const kind = rightKind(config.right);
 
   return (
     <>
@@ -138,126 +141,13 @@ export function ConditionForm({ data, errors, onChange }: FormProps<"condition">
         )}
       </Field>
 
-      <Field label="Opérateur" error={errors["config.operator"]}>
-        {(id) => (
-          <select
-            id={id}
-            className="field__input"
-            value={config.operator}
-            onChange={(event) => {
-              const operator = CONDITION_OPERATORS.find((value) => value === event.target.value);
-              if (!operator) return;
-              // "existe" ne compare à rien : on retire la valeur
-              setConfig(operator === "exists" ? { operator, right: undefined } : { operator });
-            }}
-          >
-            {CONDITION_OPERATORS.map((operator) => (
-              <option key={operator} value={operator}>
-                {OPERATOR_LABELS[operator]}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
-
-      {config.operator !== "exists" && (
-        <div className="field-row">
-          <Field label="Type">
-            {(id) => (
-              <select
-                id={id}
-                className="field__input"
-                value={kind}
-                onChange={(event) => {
-                  const next = (["string", "number", "boolean"] as const).find(
-                    (value) => value === event.target.value,
-                  );
-                  if (next) setConfig({ right: convertRight(config.right, next) });
-                }}
-              >
-                {Object.entries(RIGHT_KIND_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
-
-          <Field label="Valeur attendue" error={errors["config.right"]}>
-            {(id) =>
-              kind === "boolean" ? (
-                <select
-                  id={id}
-                  className="field__input"
-                  value={String(config.right)}
-                  onChange={(event) => setConfig({ right: event.target.value === "true" })}
-                >
-                  <option value="true">vrai</option>
-                  <option value="false">faux</option>
-                </select>
-              ) : kind === "number" ? (
-                <DraftInput
-                  key="number"
-                  id={id}
-                  initialText={config.right?.toString() ?? ""}
-                  placeholder="200"
-                  onTextChange={(text) => setConfig({ right: parseOptionalNumber(text) })}
-                />
-              ) : (
-                <input
-                  id={id}
-                  className="field__input"
-                  value={typeof config.right === "string" ? config.right : ""}
-                  onChange={(event) => setConfig({ right: event.target.value })}
-                />
-              )
-            }
-          </Field>
-        </div>
-      )}
-    </>
-  );
-}
-
-export function TransformForm({ data, errors, onChange }: FormProps<"transform">) {
-  const { config } = data;
-  const setConfig = (patch: Partial<typeof config>) =>
-    onChange({ ...data, config: { ...config, ...patch } });
-
-  return (
-    <>
-      <Field
-        label="Source"
-        hint="Référence vers la donnée à transformer, ex. http1.body.products"
-        error={errors["config.source"]}
-      >
-        {(id) => (
-          <input
-            id={id}
-            className="field__input field__input--mono"
-            value={config.source}
-            placeholder="http1.body.products"
-            aria-invalid={errors["config.source"] !== undefined}
-            onChange={(event) => setConfig({ source: event.target.value })}
-          />
-        )}
-      </Field>
-
-      <Field
-        label="Champs à conserver"
-        hint="Séparés par des virgules. Vide : tout garder"
-        error={errors["config.pick"]}
-      >
-        {(id) => (
-          <DraftInput
-            id={id}
-            initialText={formatPick(config.pick)}
-            placeholder="title, price"
-            onTextChange={(text) => setConfig({ pick: parsePick(text) })}
-          />
-        )}
-      </Field>
+      <Comparison
+        operator={config.operator}
+        value={config.right}
+        valueLabel="Valeur attendue"
+        errors={{ operator: errors["config.operator"], value: errors["config.right"] }}
+        onChange={(operator, right) => setConfig({ operator, right })}
+      />
     </>
   );
 }

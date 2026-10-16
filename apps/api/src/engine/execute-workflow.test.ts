@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { demoWorkflow } from "@flowops/shared";
+import { sampleWorkflow } from "@flowops/shared";
 import { executeWorkflow } from "./execute-workflow.js";
 import type { ExecutionResult, NodeResult } from "./types.js";
 
@@ -18,8 +18,8 @@ function statuses(nodeResults: NodeResult[]): Record<string, string> {
 async function run(
   fetchImpl: typeof fetch,
 ): Promise<Exclude<ExecutionResult, { status: "INVALID" }>> {
-  const result = await executeWorkflow(demoWorkflow, { fetch: fetchImpl });
-  if (result.status === "INVALID") throw new Error("Graphe de démo invalide");
+  const result = await executeWorkflow(sampleWorkflow, { fetch: fetchImpl });
+  if (result.status === "INVALID") throw new Error("Graphe d'exemple invalide");
   return result;
 }
 
@@ -61,7 +61,10 @@ describe("executeWorkflow", () => {
 
   it("marque le nœud HTTP en échec sur une erreur réseau et ignore la suite", async () => {
     const failingFetch: typeof fetch = async () => {
-      throw new Error("ECONNREFUSED");
+      // Même forme que fetch (undici) : la raison réelle est dans `cause`
+      throw new TypeError("fetch failed", {
+        cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
+      });
     };
     const result = await run(failingFetch);
 
@@ -72,11 +75,32 @@ describe("executeWorkflow", () => {
       check: "SKIPPED",
       names: "SKIPPED",
     });
-    expect(result.nodeResults.find((r) => r.nodeId === "http1")?.error).toBe("ECONNREFUSED");
+    expect(result.nodeResults.find((r) => r.nodeId === "http1")?.error).toBe(
+      "Connexion refusée par le serveur (ECONNREFUSED)",
+    );
+  });
+
+  it("marque le nœud HTTP en échec quand le délai est dépassé", async () => {
+    const graph = structuredClone(sampleWorkflow);
+    const http = graph.nodes.find((node) => node.type === "http");
+    if (http?.type === "http") http.config.timeoutMs = 100;
+    // Ne répond jamais, mais s'arrête quand le moteur annule la requête
+    const hangingFetch: typeof fetch = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      });
+
+    const result = await executeWorkflow(graph, { fetch: hangingFetch });
+
+    expect(result.status).toBe("FAILED");
+    if (result.status === "INVALID") return;
+    expect(result.nodeResults.find((r) => r.nodeId === "http1")?.error).toBe(
+      "Délai dépassé (100 ms)",
+    );
   });
 
   it("rejette un graphe invalide sans rien exécuter", async () => {
-    const graph = structuredClone(demoWorkflow);
+    const graph = structuredClone(sampleWorkflow);
     graph.edges.push({ id: "e4", source: "names", target: "http1" });
 
     const result = await executeWorkflow(graph, { fetch: jsonFetch(200, {}) });

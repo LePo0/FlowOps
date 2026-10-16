@@ -39,23 +39,43 @@ export const HttpNodeSchema = z.object({
   }),
 });
 
+// Valeur comparée par une condition ou un filtre : le moteur compare en strict (===)
+export const ComparedValueSchema = z.union([z.string(), z.number(), z.boolean()]);
+
 export const ConditionNodeSchema = z.object({
   ...nodeBase,
   type: z.literal("condition"),
   config: z.object({
     left: z.string().min(1), // référence, ex. "http1.status"
     operator: z.enum(CONDITION_OPERATORS),
-    right: z.union([z.string(), z.number(), z.boolean()]).optional(),
+    right: ComparedValueSchema.optional(),
   }),
 });
+
+// Chemin relatif à chaque élément d'une liste, ex. "ability.name" ou "is_hidden"
+const itemPath = z.string().min(1).max(200);
 
 export const TransformNodeSchema = z.object({
   ...nodeBase,
   type: z.literal("transform"),
-  config: z.object({
-    source: z.string().min(1), // référence, ex. "http1.body.products"
-    pick: z.array(z.string().min(1)).optional(), // champs à conserver
-  }),
+  config: z
+    .object({
+      source: z.string().min(1), // référence, ex. "http1.body.products"
+      // Ne garde que les éléments de la liste qui vérifient la comparaison
+      filter: z
+        .object({
+          field: itemPath,
+          operator: z.enum(CONDITION_OPERATORS),
+          value: ComparedValueSchema.optional(),
+        })
+        .optional(),
+      pick: z.array(itemPath).min(1).max(50).optional(), // champs à conserver
+      extract: itemPath.optional(), // un seul champ par élément : liste de valeurs
+    })
+    .refine((config) => config.pick === undefined || config.extract === undefined, {
+      message: "Choisissez des champs à conserver ou un champ à extraire, pas les deux",
+      path: ["extract"],
+    }),
 });
 
 // Union discriminée sur "type" : TypeScript sait quelle config correspond à quel nœud

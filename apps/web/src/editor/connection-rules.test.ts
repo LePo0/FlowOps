@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { demoWorkflow } from "@flowops/shared";
+import { sampleWorkflow } from "@flowops/shared";
 import { canConnect } from "./connection-rules.ts";
 import { fromGraph } from "./graph.ts";
 
 // Démo : trigger → http1 → check →(true) names
-const { nodes, edges } = fromGraph(demoWorkflow);
+const { nodes, edges } = fromGraph(sampleWorkflow);
 
 function connect(source: string, target: string, sourceHandle: string | null = null) {
   return canConnect({ source, target, sourceHandle }, nodes, edges);
