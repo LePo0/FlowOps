@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import request from "supertest";
+import { as, fakeAuth } from "../../test-support/fake-auth.js";
 import type { Express } from "express";
 import {
   MAX_RUNS_PER_WORKFLOW,
@@ -36,14 +36,12 @@ describe("historique des exécutions", () => {
     createApp({
       fetch: fetchMock,
       nodeEnv,
-      workflows: {
-        repository: workflows,
-        resolveUserId: (req) => req.get("x-test-user") ?? ALICE,
-      },
+      auth: fakeAuth,
+      workflows,
       runs: createMemoryRunRepository(workflows),
     });
   const run = (id = workflowId, graph: unknown = sampleWorkflow, user = ALICE) =>
-    request(app).post(`/api/workflows/${id}/runs`).set("x-test-user", user).send({ graph });
+    as(app, user).post(`/api/workflows/${id}/runs`).send({ graph });
 
   beforeEach(async () => {
     workflows = createMemoryWorkflowRepository();
@@ -70,7 +68,7 @@ describe("historique des exécutions", () => {
 
     const { body } = await run(workflowId, edited);
 
-    const stored = await request(app).get(`/api/runs/${body.id}`);
+    const stored = await as(app, ALICE).get(`/api/runs/${body.id}`);
     expect(stored.body.graph.nodes[0].name).toBe("Modifié sans enregistrer");
   });
 
@@ -79,7 +77,7 @@ describe("historique des exécutions", () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     const second = await run();
 
-    const res = await request(app).get(`/api/workflows/${workflowId}/runs`);
+    const res = await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`);
 
     expect(res.status).toBe(200);
     const { runs } = RunListSchema.parse(res.body);
@@ -90,7 +88,7 @@ describe("historique des exécutions", () => {
   it(`ne garde que les ${MAX_RUNS_PER_WORKFLOW} exécutions les plus récentes`, async () => {
     for (let i = 0; i < MAX_RUNS_PER_WORKFLOW + 2; i++) await run();
 
-    const res = await request(app).get(`/api/workflows/${workflowId}/runs`);
+    const res = await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`);
 
     expect(res.body.runs).toHaveLength(MAX_RUNS_PER_WORKFLOW);
   });
@@ -103,7 +101,7 @@ describe("historique des exécutions", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.errors).toEqual([expect.objectContaining({ code: "CYCLE" })]);
-    expect((await request(app).get(`/api/workflows/${workflowId}/runs`)).body.runs).toEqual([]);
+    expect((await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`)).body.runs).toEqual([]);
   });
 
   it("n'exécute rien pour un workflow inconnu ou appartenant à un autre utilisateur", async () => {
@@ -115,11 +113,12 @@ describe("historique des exécutions", () => {
 
   it("cache l'historique et les exécutions d'un autre utilisateur", async () => {
     const { body } = await run();
-    const asBob = (req: request.Test) => req.set("x-test-user", BOB);
 
-    expect((await asBob(request(app).get(`/api/workflows/${workflowId}/runs`))).status).toBe(404);
-    expect((await asBob(request(app).get(`/api/runs/${body.id}`))).status).toBe(404);
-    expect((await request(app).get(`/api/runs/${UNKNOWN}`)).body.errors[0].code).toBe("NOT_FOUND");
+    expect((await as(app, BOB).get(`/api/workflows/${workflowId}/runs`)).status).toBe(404);
+    expect((await as(app, BOB).get(`/api/runs/${body.id}`)).status).toBe(404);
+    expect((await as(app, ALICE).get(`/api/runs/${UNKNOWN}`)).body.errors[0].code).toBe(
+      "NOT_FOUND",
+    );
   });
 
   it("en production, n'exécute pas mais laisse consulter l'historique", async () => {
@@ -127,12 +126,13 @@ describe("historique des exécutions", () => {
     app = createApp({
       fetch: fetchMock,
       nodeEnv: "production",
-      workflows: { repository: workflows, resolveUserId: () => ALICE },
+      auth: fakeAuth,
+      workflows,
       runs: createMemoryRunRepository(workflows),
     });
 
     expect((await run()).status).toBe(404);
-    expect((await request(app).get(`/api/workflows/${workflowId}/runs`)).status).toBe(200);
+    expect((await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`)).status).toBe(200);
     expect(body.id).toBeDefined();
   });
 });

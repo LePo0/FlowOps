@@ -48,8 +48,10 @@ describe.skipIf(!url)("dépôt Prisma des exécutions (base de test)", () => {
 
   beforeEach(async () => {
     await prisma.$executeRawUnsafe('TRUNCATE "User" CASCADE');
-    alice = (await prisma.user.create({ data: { email: "alice@test.local" } })).id;
-    bob = (await prisma.user.create({ data: { email: "bob@test.local" } })).id;
+    alice = (
+      await prisma.user.create({ data: { authUid: "uid-alice", email: "alice@test.local" } })
+    ).id;
+    bob = (await prisma.user.create({ data: { authUid: "uid-bob", email: "bob@test.local" } })).id;
     const workflows = createPrismaWorkflowRepository(prisma);
     workflowId = (await workflows.create(alice, { name: "Démo", graph: sampleWorkflow })).id;
   });

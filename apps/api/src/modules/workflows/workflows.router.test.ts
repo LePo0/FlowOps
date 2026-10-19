@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import request from "supertest";
+import { as, fakeAuth } from "../../test-support/fake-auth.js";
 import type { Express } from "express";
 import { sampleWorkflow, WorkflowDetailSchema, WorkflowListSchema } from "@flowops/shared";
 import { createApp } from "../../app.js";
@@ -14,7 +14,8 @@ function testApp(repository: WorkflowRepository): Express {
   return createApp({
     fetch,
     nodeEnv: "test",
-    workflows: { repository, resolveUserId: (req) => req.get("x-test-user") ?? ALICE },
+    auth: fakeAuth,
+    workflows: repository,
   });
 }
 
@@ -26,7 +27,7 @@ describe("/api/workflows", () => {
   });
 
   const create = (name = "Démo", graph: unknown = sampleWorkflow, user = ALICE) =>
-    request(app).post("/api/workflows").set("x-test-user", user).send({ name, graph });
+    as(app, user).post("/api/workflows").send({ name, graph });
 
   it("crée un workflow et le relit à l'identique", async () => {
     const created = await create("  Pokémons  ");
@@ -36,7 +37,7 @@ describe("/api/workflows", () => {
     expect(detail.name).toBe("Pokémons");
     expect(created.headers["location"]).toBe(`/api/workflows/${detail.id}`);
 
-    const read = await request(app).get(`/api/workflows/${detail.id}`);
+    const read = await as(app, ALICE).get(`/api/workflows/${detail.id}`);
     expect(read.status).toBe(200);
     expect(WorkflowDetailSchema.parse(read.body).graph).toEqual(sampleWorkflow);
   });
@@ -46,7 +47,7 @@ describe("/api/workflows", () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     await create("Second");
 
-    const res = await request(app).get("/api/workflows");
+    const res = await as(app, ALICE).get("/api/workflows");
 
     expect(res.status).toBe(200);
     const { workflows } = WorkflowListSchema.parse(res.body);
@@ -59,7 +60,7 @@ describe("/api/workflows", () => {
     const graph = structuredClone(sampleWorkflow);
     graph.nodes[0]!.name = "Départ";
 
-    const res = await request(app)
+    const res = await as(app, ALICE)
       .put(`/api/workflows/${body.id}`)
       .send({ name: "Renommé", graph });
 
@@ -72,8 +73,8 @@ describe("/api/workflows", () => {
   it("supprime un workflow", async () => {
     const { body } = await create();
 
-    expect((await request(app).delete(`/api/workflows/${body.id}`)).status).toBe(204);
-    expect((await request(app).get(`/api/workflows/${body.id}`)).status).toBe(404);
+    expect((await as(app, ALICE).delete(`/api/workflows/${body.id}`)).status).toBe(204);
+    expect((await as(app, ALICE).get(`/api/workflows/${body.id}`)).status).toBe(404);
   });
 
   it("refuse un nom vide ou un graphe invalide avec des messages par champ", async () => {
@@ -90,9 +91,9 @@ describe("/api/workflows", () => {
   it("répond 404 pour un identifiant inconnu ou mal formé", async () => {
     const unknown = "33333333-3333-4333-8333-333333333333";
 
-    expect((await request(app).get(`/api/workflows/${unknown}`)).status).toBe(404);
-    expect((await request(app).get("/api/workflows/pas-un-uuid")).status).toBe(404);
-    const put = await request(app)
+    expect((await as(app, ALICE).get(`/api/workflows/${unknown}`)).status).toBe(404);
+    expect((await as(app, ALICE).get("/api/workflows/pas-un-uuid")).status).toBe(404);
+    const put = await as(app, ALICE)
       .put("/api/workflows/pas-un-uuid")
       .send({ name: "x", graph: sampleWorkflow });
     expect(put.status).toBe(404);
@@ -101,27 +102,26 @@ describe("/api/workflows", () => {
 
   it("isole les workflows de chaque utilisateur", async () => {
     const { body } = await create("À Alice", sampleWorkflow, ALICE);
-    const asBob = (req: request.Test) => req.set("x-test-user", BOB);
 
-    expect((await asBob(request(app).get("/api/workflows"))).body.workflows).toEqual([]);
-    expect((await asBob(request(app).get(`/api/workflows/${body.id}`))).status).toBe(404);
+    expect((await as(app, BOB).get("/api/workflows")).body.workflows).toEqual([]);
+    expect((await as(app, BOB).get(`/api/workflows/${body.id}`)).status).toBe(404);
     expect(
       (
-        await asBob(request(app).put(`/api/workflows/${body.id}`)).send({
+        await as(app, BOB).put(`/api/workflows/${body.id}`).send({
           name: "Volé",
           graph: sampleWorkflow,
         })
       ).status,
     ).toBe(404);
-    expect((await asBob(request(app).delete(`/api/workflows/${body.id}`))).status).toBe(404);
+    expect((await as(app, BOB).delete(`/api/workflows/${body.id}`)).status).toBe(404);
 
-    const stillThere = await request(app).get(`/api/workflows/${body.id}`);
+    const stillThere = await as(app, ALICE).get(`/api/workflows/${body.id}`);
     expect(stillThere.body.name).toBe("À Alice");
   });
 
   it("n'est pas montée sans dépôt", async () => {
-    const withoutDb = createApp({ fetch, nodeEnv: "test" });
+    const withoutDb = createApp({ fetch, nodeEnv: "test", auth: fakeAuth });
 
-    expect((await request(withoutDb).get("/api/workflows")).status).toBe(404);
+    expect((await as(withoutDb, ALICE).get("/api/workflows")).status).toBe(404);
   });
 });

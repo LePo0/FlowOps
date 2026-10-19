@@ -1,23 +1,26 @@
 import { createApp } from "./app.js";
+import { createFirebaseTokenVerifier } from "./auth/firebase-token-verifier.js";
+import { createPrismaUserDirectory } from "./auth/prisma-user-directory.js";
 import { env } from "./config/env.js";
 import { createPrismaClient } from "./db/client.js";
-import { ensureDemoUser } from "./db/demo-user.js";
 import { createPrismaRunRepository } from "./modules/runs/prisma-run.repository.js";
 import { createPrismaWorkflowRepository } from "./modules/workflows/prisma-workflow.repository.js";
 
-if (!env.DATABASE_URL) {
-  console.error(
-    "DATABASE_URL manquante dans apps/api/.env : voir docs/architecture.md, section Persistance.",
-  );
+const missing = [
+  !env.DATABASE_URL && "DATABASE_URL (voir docs/architecture.md, section Persistance)",
+  !env.FIREBASE_PROJECT_ID &&
+    "FIREBASE_PROJECT_ID (voir docs/architecture.md, section Authentification)",
+].filter(Boolean);
+if (!env.DATABASE_URL || !env.FIREBASE_PROJECT_ID) {
+  console.error(`Variables manquantes dans apps/api/.env : ${missing.join(", ")}.`);
   process.exit(1);
 }
 
 const prisma = createPrismaClient(env.DATABASE_URL);
 
 // Premier accès à la base : en cas d'échec, un message qui dit quoi faire plutôt qu'une trace Prisma
-let demoUserId: string;
 try {
-  demoUserId = await ensureDemoUser(prisma);
+  await prisma.$queryRaw`SELECT 1`;
 } catch (error) {
   const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
   const { hostname, port } = new URL(env.DATABASE_URL);
@@ -29,12 +32,14 @@ try {
   process.exit(1);
 }
 
+const workflows = createPrismaWorkflowRepository(prisma);
 const app = createApp({
   fetch,
-  workflows: {
-    repository: createPrismaWorkflowRepository(prisma),
-    resolveUserId: () => demoUserId,
+  auth: {
+    verifyToken: createFirebaseTokenVerifier(env.FIREBASE_PROJECT_ID),
+    users: createPrismaUserDirectory(prisma),
   },
+  workflows,
   runs: createPrismaRunRepository(prisma),
 });
 
