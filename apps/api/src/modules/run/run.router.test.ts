@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import request from "supertest";
+import { as, fakeAuth } from "../../test-support/fake-auth.js";
 import { sampleWorkflow } from "@flowops/shared";
 import { createApp } from "../../app.js";
+
+const USER = "11111111-1111-4111-8111-111111111111";
 
 function jsonFetch(status: number, body: unknown) {
   return vi.fn<typeof fetch>(
@@ -14,14 +16,14 @@ function jsonFetch(status: number, body: unknown) {
 }
 
 function devApp(fetchImpl: typeof fetch) {
-  return createApp({ fetch: fetchImpl, nodeEnv: "development" });
+  return createApp({ fetch: fetchImpl, nodeEnv: "development", auth: fakeAuth });
 }
 
 describe("POST /api/run", () => {
   it("exécute le workflow d'exemple et répond 200 avec les résultats par nœud", async () => {
     const fetchMock = jsonFetch(200, { products: [{ id: 1, title: "A", price: 10 }] });
 
-    const res = await request(devApp(fetchMock)).post("/api/run").send({ graph: sampleWorkflow });
+    const res = await as(devApp(fetchMock), USER).post("/api/run").send({ graph: sampleWorkflow });
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("SUCCESS");
@@ -38,7 +40,7 @@ describe("POST /api/run", () => {
   it("répond 400 si le corps n'a pas de graphe", async () => {
     const fetchMock = jsonFetch(200, {});
 
-    const res = await request(devApp(fetchMock)).post("/api/run").send({ nodes: [] });
+    const res = await as(devApp(fetchMock), USER).post("/api/run").send({ nodes: [] });
 
     expect(res.status).toBe(400);
     expect(res.body.errors[0].code).toBe("INVALID_BODY");
@@ -50,7 +52,7 @@ describe("POST /api/run", () => {
     const graph = structuredClone(sampleWorkflow);
     graph.edges.push({ id: "e4", source: "names", target: "http1" });
 
-    const res = await request(devApp(fetchMock)).post("/api/run").send({ graph });
+    const res = await as(devApp(fetchMock), USER).post("/api/run").send({ graph });
 
     expect(res.status).toBe(400);
     expect(res.body.errors).toEqual([expect.objectContaining({ code: "CYCLE" })]);
@@ -65,7 +67,7 @@ describe("POST /api/run", () => {
       });
     });
 
-    const res = await request(devApp(failingFetch))
+    const res = await as(devApp(failingFetch), USER)
       .post("/api/run")
       .send({ graph: sampleWorkflow });
 
@@ -81,7 +83,7 @@ describe("POST /api/run", () => {
   });
 
   it("répond 400 en JSON propre pour un JSON mal formé", async () => {
-    const res = await request(devApp(jsonFetch(200, {})))
+    const res = await as(devApp(jsonFetch(200, {})), USER)
       .post("/api/run")
       .set("Content-Type", "application/json")
       .send('{"graph":');
@@ -91,7 +93,7 @@ describe("POST /api/run", () => {
   });
 
   it("répond 413 pour un corps de plus de 1 Mo", async () => {
-    const res = await request(devApp(jsonFetch(200, {})))
+    const res = await as(devApp(jsonFetch(200, {})), USER)
       .post("/api/run")
       .send({ graph: sampleWorkflow, padding: "x".repeat(1024 * 1024) });
 
@@ -101,9 +103,9 @@ describe("POST /api/run", () => {
 
   it("n'est pas montée en production", async () => {
     const fetchMock = jsonFetch(200, {});
-    const app = createApp({ fetch: fetchMock, nodeEnv: "production" });
+    const app = createApp({ fetch: fetchMock, nodeEnv: "production", auth: fakeAuth });
 
-    const res = await request(app).post("/api/run").send({ graph: sampleWorkflow });
+    const res = await as(app, USER).post("/api/run").send({ graph: sampleWorkflow });
 
     expect(res.status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();

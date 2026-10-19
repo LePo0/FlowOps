@@ -25,8 +25,10 @@ describe.skipIf(!url)("dépôt Prisma des workflows (base de test)", () => {
   beforeEach(async () => {
     // Base vide à chaque test ; CASCADE vide aussi workflows et exécutions
     await prisma.$executeRawUnsafe('TRUNCATE "User" CASCADE');
-    alice = (await prisma.user.create({ data: { email: "alice@test.local" } })).id;
-    bob = (await prisma.user.create({ data: { email: "bob@test.local" } })).id;
+    alice = (
+      await prisma.user.create({ data: { authUid: "uid-alice", email: "alice@test.local" } })
+    ).id;
+    bob = (await prisma.user.create({ data: { authUid: "uid-bob", email: "bob@test.local" } })).id;
   });
 
   it("enregistre le graphe en JSONB et le relit à l'identique", async () => {

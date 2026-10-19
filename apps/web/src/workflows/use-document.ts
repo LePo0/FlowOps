@@ -2,6 +2,7 @@ import type { WorkflowGraph } from "@flowops/shared";
 import { toGraph } from "../editor/graph.ts";
 import { useEditorStore } from "../editor/store.ts";
 import { useRunStore } from "../run/run-store.ts";
+import { authFetch } from "../auth/session.ts";
 import { createWorkflowsApi } from "./api.ts";
 import { createDocumentStore, documentSnapshot } from "./document-store.ts";
 
@@ -15,7 +16,7 @@ export const blankWorkflow: WorkflowGraph = {
   edges: [],
 };
 
-export const workflowsApi = createWorkflowsApi();
+export const workflowsApi = createWorkflowsApi(authFetch);
 
 // localStorage peut être indisponible (navigation privée, stockage bloqué) : sans effet alors
 const lastOpened = {

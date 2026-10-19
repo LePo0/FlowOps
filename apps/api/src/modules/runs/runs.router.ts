@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { currentUserId } from "../../auth/authenticate.js";
 import {
   WorkflowGraphSchema,
   type ApiErrorResponse,
@@ -17,7 +18,6 @@ export interface RunsRouterDeps {
   runs: RunRepository;
   workflows: WorkflowRepository;
   fetch: typeof fetch;
-  resolveUserId: (req: Request) => string;
   // Faux en production : le nœud HTTP n'est pas encore protégé contre le SSRF (voir app.ts).
   // La consultation de l'historique reste possible.
   allowExecution: boolean;
@@ -53,7 +53,7 @@ export function createRunsRouter(deps: RunsRouterDeps): Router {
     // Exécute le graphe envoyé (celui affiché dans l'éditeur, enregistré ou non) et l'historise
     router.post("/workflows/:id/runs", async (req, res) => {
       const workflowId = idParam(req, "id");
-      const userId = deps.resolveUserId(req);
+      const userId = currentUserId(res);
       // Vérifié avant d'exécuter : on n'appelle aucune URL pour le workflow d'un autre
       if (!workflowId || !(await deps.workflows.find(userId, workflowId))) {
         res.status(404).json(WORKFLOW_NOT_FOUND);
@@ -92,7 +92,7 @@ export function createRunsRouter(deps: RunsRouterDeps): Router {
 
   router.get("/workflows/:id/runs", async (req, res) => {
     const workflowId = idParam(req, "id");
-    const runs = workflowId && (await deps.runs.list(deps.resolveUserId(req), workflowId));
+    const runs = workflowId && (await deps.runs.list(currentUserId(res), workflowId));
     if (!runs) {
       res.status(404).json(WORKFLOW_NOT_FOUND);
       return;
@@ -103,7 +103,7 @@ export function createRunsRouter(deps: RunsRouterDeps): Router {
 
   router.get("/runs/:runId", async (req, res) => {
     const runId = idParam(req, "runId");
-    const run = runId && (await deps.runs.find(deps.resolveUserId(req), runId));
+    const run = runId && (await deps.runs.find(currentUserId(res), runId));
     if (!run) {
       res.status(404).json(RUN_NOT_FOUND);
       return;

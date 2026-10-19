@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { currentUserId } from "../../auth/authenticate.js";
 import {
   SaveWorkflowRequestSchema,
   type WorkflowDetail,
@@ -15,9 +16,6 @@ import type {
 
 export interface WorkflowsRouterDeps {
   repository: WorkflowRepository;
-  // Utilisateur courant. En attendant l'authentification (roadmap, étape 4) : un utilisateur
-  // de démonstration fixe. Toutes les opérations sont limitées à cet utilisateur.
-  resolveUserId: (req: Request) => string;
 }
 
 const IdSchema = z.uuid();
@@ -35,7 +33,7 @@ const toDetail = (workflow: StoredWorkflow): WorkflowDetail => ({
   graph: workflow.graph,
 });
 
-export function createWorkflowsRouter({ repository, resolveUserId }: WorkflowsRouterDeps): Router {
+export function createWorkflowsRouter({ repository }: WorkflowsRouterDeps): Router {
   const router = Router();
 
   // Un identifiant mal formé ne peut désigner aucun workflow : 404, comme un id inconnu
@@ -45,7 +43,7 @@ export function createWorkflowsRouter({ repository, resolveUserId }: WorkflowsRo
   };
 
   router.get("/", async (req, res) => {
-    const workflows = await repository.list(resolveUserId(req));
+    const workflows = await repository.list(currentUserId(res));
     const body: WorkflowList = { workflows: workflows.map(toSummary) };
     res.json(body);
   });
@@ -56,13 +54,13 @@ export function createWorkflowsRouter({ repository, resolveUserId }: WorkflowsRo
       res.status(400).json(invalidBody(parsed.error));
       return;
     }
-    const created = await repository.create(resolveUserId(req), parsed.data);
+    const created = await repository.create(currentUserId(res), parsed.data);
     res.status(201).location(`${req.baseUrl}/${created.id}`).json(toDetail(created));
   });
 
   router.get("/:id", async (req, res) => {
     const id = workflowId(req);
-    const workflow = id && (await repository.find(resolveUserId(req), id));
+    const workflow = id && (await repository.find(currentUserId(res), id));
     if (!workflow) {
       res.status(404).json(NOT_FOUND);
       return;
@@ -81,7 +79,7 @@ export function createWorkflowsRouter({ repository, resolveUserId }: WorkflowsRo
       res.status(400).json(invalidBody(parsed.error));
       return;
     }
-    const updated = await repository.update(resolveUserId(req), id, parsed.data);
+    const updated = await repository.update(currentUserId(res), id, parsed.data);
     if (!updated) {
       res.status(404).json(NOT_FOUND);
       return;
@@ -91,7 +89,7 @@ export function createWorkflowsRouter({ repository, resolveUserId }: WorkflowsRo
 
   router.delete("/:id", async (req, res) => {
     const id = workflowId(req);
-    if (!id || !(await repository.remove(resolveUserId(req), id))) {
+    if (!id || !(await repository.remove(currentUserId(res), id))) {
       res.status(404).json(NOT_FOUND);
       return;
     }
