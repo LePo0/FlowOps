@@ -12,6 +12,9 @@ const EnvSchema = z.object({
     (value) => (value === "" ? undefined : value),
     z.string().optional(),
   ),
+  // Politique réseau du nœud HTTP (docs/security/http-node.md). Vides : adresses publiques seules.
+  HTTP_ALLOWED_TARGETS: z.string().default(""),
+  HTTP_DENIED_TARGETS: z.string().default(""),
 });
 
 export const env = EnvSchema.parse(process.env);

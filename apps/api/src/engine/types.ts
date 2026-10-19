@@ -39,11 +39,16 @@ export type ExecutionResult =
 
 export interface ExecutionDeps {
   fetch: typeof fetch;
+  // Durée maximale de toute l'exécution (60 s par défaut)
+  maxDurationMs?: number;
 }
 
 export interface HandlerContext {
   outputs: Map<string, unknown>;
   fetch: typeof fetch;
+  // Échéance globale de l'exécution : annule la requête en cours quand elle est atteinte
+  deadline: AbortSignal;
+  maxDurationMs: number;
 }
 
 export interface HandlerResult {

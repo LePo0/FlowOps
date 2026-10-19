@@ -1,8 +1,12 @@
+import { lookup } from "node:dns/promises";
 import { createApp } from "./app.js";
 import { createFirebaseTokenVerifier } from "./auth/firebase-token-verifier.js";
 import { createPrismaUserDirectory } from "./auth/prisma-user-directory.js";
 import { env } from "./config/env.js";
 import { createPrismaClient } from "./db/client.js";
+import { createGuardedFetch } from "./engine/network/guarded-fetch.js";
+import { createNetworkPolicy, type NetworkPolicy } from "./engine/network/policy.js";
+import { pinnedTransport } from "./engine/network/transport.js";
 import { createPrismaRunRepository } from "./modules/runs/prisma-run.repository.js";
 import { createPrismaWorkflowRepository } from "./modules/workflows/prisma-workflow.repository.js";
 
@@ -15,6 +19,28 @@ if (!env.DATABASE_URL || !env.FIREBASE_PROJECT_ID) {
   console.error(`Variables manquantes dans apps/api/.env : ${missing.join(", ")}.`);
   process.exit(1);
 }
+
+// Une liste mal écrite ne doit pas ouvrir (ou fermer) le réseau en silence : arrêt immédiat
+let networkPolicy: NetworkPolicy;
+try {
+  networkPolicy = createNetworkPolicy({
+    allowed: env.HTTP_ALLOWED_TARGETS,
+    denied: env.HTTP_DENIED_TARGETS,
+  });
+} catch (error) {
+  console.error(
+    `HTTP_ALLOWED_TARGETS ou HTTP_DENIED_TARGETS : ${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exit(1);
+}
+
+// fetch du nœud HTTP : politique réseau vérifiée à chaque connexion, redirections comprises
+const guardedFetch = createGuardedFetch({
+  policy: networkPolicy,
+  resolve: async (hostname) =>
+    (await lookup(hostname, { all: true, verbatim: true })).map((entry) => entry.address),
+  transport: pinnedTransport,
+});
 
 const prisma = createPrismaClient(env.DATABASE_URL);
 
@@ -34,7 +60,7 @@ try {
 
 const workflows = createPrismaWorkflowRepository(prisma);
 const app = createApp({
-  fetch,
+  fetch: guardedFetch,
   auth: {
     verifyToken: createFirebaseTokenVerifier(env.FIREBASE_PROJECT_ID),
     users: createPrismaUserDirectory(prisma),
