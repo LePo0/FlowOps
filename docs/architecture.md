@@ -225,11 +225,13 @@ Principes :
 | Références sûres (propriétés propres uniquement)    | En place                                         |
 | Authentification sur toutes les routes `/api`       | En place (Firebase, email vérifié obligatoire)   |
 | CORS limité à l'origine de l'éditeur                | En place                                         |
-| Blocage des adresses locales et privées (SSRF)      | **À venir, prérequis avant toute mise en ligne** |
+| Politique réseau des cibles (SSRF)                  | **À venir, prérequis avant toute mise en ligne** |
 | Revalidation des redirections                       | À venir                                          |
 | Lecture de la réponse en flux avec coupure          | À venir                                          |
 | Durée maximale globale d'une exécution              | À venir                                          |
-| Secrets (tokens) hors du JSON du graphe et des logs | À venir                                          |
+| Secrets (tokens) hors du JSON du graphe et des logs | Hors MVP (piste d'évolution : coffre de secrets) |
+
+FlowOps doit pouvoir tourner en SaaS public comme sur le réseau d'une entreprise, pour appeler ses API internes. Le nœud HTTP ne bloque donc pas « toutes les adresses privées » : il applique une **politique réseau fixée par l'administrateur du déploiement**. Par défaut, seules les adresses publiques sont autorisées. Des réseaux et domaines internes s'ouvrent par variable d'environnement, et certaines cibles restent toujours interdites (boucle locale, serveur de métadonnées du cloud). Règles, modes et scénarios vérifiés : [`docs/security/http-node.md`](security/http-node.md).
 
 ## 7. Persistance
 
@@ -274,7 +276,7 @@ Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et appliq
 - Tests d'intégration de l'API sur une vraie base PostgreSQL (`TEST_DATABASE_URL`) : Vitest y applique les migrations avant de lancer les tests, et ne leur transmet jamais `DATABASE_URL`. Sans base de test, ils sont ignorés en local mais font échouer la CI, où un service `postgres:18` jetable est fourni.
 - CI GitHub Actions : `lint`, `typecheck`, `test` et `format` en parallèle, sur pull requests et sur `main`.
 - Workflow Git : `main` protégé, branches courtes, pull requests avec squash.
-- Déploiement cible (à venir) : Docker, Cloud Run, base managée, frontend sur Firebase Hosting.
+- Déploiement cible (à venir) : Docker, Cloud Run, base managée, frontend sur Firebase Hosting pour le SaaS ; la même image Docker, configurée par variables d'environnement, pour une installation en entreprise.
 
 ## 9. Décisions
 
