@@ -13,7 +13,7 @@ Périmètre du MVP : quatre types de nœuds (déclencheur, requête HTTP, condit
 | Sujet                   | Choix                                              | Raison                                                                                                |
 | ----------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Gestionnaire de paquets | npm workspaces                                     | Déjà fourni avec Node, aucun outil supplémentaire                                                     |
-| Hébergement et CI       | GitLab, `.gitlab-ci.yml`                           | Choix du projet                                                                                       |
+| Hébergement et CI       | GitHub, GitHub Actions                             | Choix du projet (migré depuis GitLab en octobre 2026)                                                 |
 | Frontend                | Vite + React + TypeScript + React Compiler         | Stack maîtrisée                                                                                       |
 | Backend                 | Node.js + Express + TypeScript, exécuté avec `tsx` | API REST simple                                                                                       |
 | Validation              | Zod, partagé entre front et back                   | Une seule source de vérité                                                                            |
@@ -48,7 +48,7 @@ flowops/
 │     ├─ workflow.test.ts
 │     ├─ fixtures/demo-workflow.ts
 │     └─ index.ts
-├─ .gitlab-ci.yml
+├─ .github/workflows/ci.yml
 ├─ eslint.config.mjs
 ├─ tsconfig.base.json
 ├─ .prettierrc / .prettierignore
@@ -61,7 +61,7 @@ flowops/
 - **`tsconfig.base.json`** : options TypeScript communes (`strict`, `noUncheckedIndexedAccess`, `moduleResolution: Bundler`), étendues par `api` et `shared`.
 - **`eslint.config.mjs`** : config ESLint (typescript-eslint, `eslint-config-prettier`) pour `api` et `shared`. `apps/web` est ignoré car il garde la config de son template.
 - **`.prettierrc` et `.prettierignore`** : formatage commun à tout le dépôt.
-- **`.gitlab-ci.yml`** : trois jobs en parallèle (`lint`, `typecheck`, `test`), cache npm indexé sur `package-lock.json`, pipelines limités aux merge requests et à la branche principale.
+- **`.github/workflows/ci.yml`** : quatre jobs GitHub Actions en parallèle (`lint`, `typecheck`, `test` avec un service PostgreSQL, `format`), cache npm indexé sur `package-lock.json`, pipelines limités aux pull requests et à la branche principale.
 
 ## 4 bis. `apps/api` : le squelette
 
@@ -161,10 +161,10 @@ Les tests du moteur n'appellent jamais le réseau : le `fetch` est simulé.
 
 ## 8. Workflow Git et livraisons
 
-- Setup fait sur `main`, puis `main` protégé : les changements passent par des merge requests avec pipeline vert, squash et suppression de la branche source.
+- Setup fait sur `main`, puis `main` protégé : les changements passent par des pull requests avec pipeline vert, squash et suppression de la branche source.
 - Branches courtes par fonctionnalité (`feat/…`, `fix/…`, `chore/…`, `docs/…`), messages au format Conventional Commits.
 
-Merge requests réalisées :
+Merge requests réalisées (sur GitLab, avant la migration vers GitHub) :
 
 1. **`feat/workflow-schemas`** : `workflow.ts`, `demo-workflow.ts`, `workflow.test.ts`, `index.ts` dans `packages/shared`.
 2. **`feat/execution-engine`** : `types.ts`, `topological-sort.ts`, `validate-graph.ts`, `index.ts` et leurs tests dans `apps/api/src/engine`.
@@ -190,6 +190,7 @@ Merge requests réalisées :
 - Paquet `eslint-config-prettier` non installé au premier essai.
 - Chemin du script dans `apps/web/index.html` après le déplacement du projet Vite.
 - Dossier `engine` refusé à la suppression par Windows pendant un changement de branche, puis `main` local en retard : réglé avec `git pull --ff-only` et `git rebase main`. La cause probable est OneDrive ou VS Code qui tiennent les fichiers ouverts ; un dépôt dans un dossier local (`C:\dev\flowops`) éviterait ce genre de souci.
+- Migration de GitLab vers GitHub : une réécriture locale des emails d'auteur avait changé le hash de tous les commits, si bien que la branche de fonctionnalité n'avait plus d'ancêtre commun avec `main` (conflits sur tous les fichiers). Réglé en rebasant la branche sur le `main` distant, puis en réécrivant les emails une seule fois, sur toutes les branches, avant le premier push vers GitHub.
 
 ## 11. Limites connues
 
@@ -207,5 +208,5 @@ Merge requests réalisées :
 5. **Sécurité du nœud HTTP** : blocage des adresses locales et privées, revalidation des redirections, lecture de la réponse en flux, durée maximale d'exécution.
 6. **Débogage dans l'interface** : historique, détail par nœud (entrée, sortie, durée, erreur), relance.
 7. **Tests complémentaires** : cas limites du moteur, tests d'API, tests d'isolation entre utilisateurs.
-8. **Déploiement** : Dockerfile, Cloud Run, base managée, frontend sur Firebase Hosting, GitLab CI avec Workload Identity Federation.
+8. **Déploiement** : Dockerfile, Cloud Run, base managée, frontend sur Firebase Hosting, GitHub Actions avec Workload Identity Federation.
 9. **Finitions portfolio** : README, schéma d'architecture, `docs/decisions.md`, trois scénarios de démo (nominal, erreur, modification) et vidéo courte.
