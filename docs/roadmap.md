@@ -49,11 +49,20 @@ _Dernière mise à jour : 19 octobre 2026._
 
 ### 5. Sécurité du nœud HTTP
 
-- [ ] Blocage des adresses locales et privées (SSRF), y compris pour les URL construites avec des `{{références}}` : une API tierce peut renvoyer une adresse interne
-- [ ] Revalidation des redirections
-- [ ] Lecture de la réponse en flux avec limite de taille
-- [ ] Durée maximale d'une exécution
-- [ ] Secrets hors du graphe et des logs
+FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une entreprise pour appeler ses API internes. La protection repose donc sur une politique réseau fixée par l'administrateur du déploiement, pas sur un blocage figé. Scénarios et résultats attendus : [`docs/security/http-node.md`](security/http-node.md).
+
+- [x] Scénarios de sécurité rédigés avant le développement
+- [ ] Politique réseau des cibles (SSRF), vérifiée sur l'adresse IP résolue et appliquée à la connexion, y compris pour les URL construites avec des `{{références}}` :
+  - par défaut, adresses publiques uniquement ;
+  - `HTTP_ALLOWED_TARGETS` : réseaux et domaines internes ouverts par l'administrateur ;
+  - `HTTP_DENIED_TARGETS` : exclusions qui l'emportent sur la liste précédente (ex. le réseau de la base de FlowOps) ;
+  - toujours interdits, quelle que soit la configuration : boucle locale, adresses de lien local (dont le serveur de métadonnées du cloud), adresse non spécifiée
+- [ ] Redirections suivies par FlowOps : 5 au maximum, chacune revalidée, en-têtes sensibles retirés quand le domaine change
+- [ ] Lecture de la réponse en flux, coupée au-delà de 1 Mo décompressé
+- [ ] Durée maximale d'une exécution (échéance globale)
+- [ ] Message unique pour une cible refusée : pas d'indice sur l'existence d'une machine ou d'un port
+- [ ] Scénarios traduits en tests automatisés, puis vérification finale sur l'application lancée en local
+- [ ] Exécution montée en production une fois les points précédents faits
 - **Prérequis avant toute mise en ligne**
 
 ### 6. Débogage dans l'interface
@@ -75,6 +84,7 @@ _Dernière mise à jour : 19 octobre 2026._
 - [ ] Frontend sur Firebase Hosting
 - [ ] Déploiement via GitHub Actions (Workload Identity Federation, pas de clé statique)
 - [ ] Budget et alertes de coût
+- [ ] Installation en entreprise : image Docker de l'API et de l'éditeur configurable par variables d'environnement (politique réseau, projet Firebase, base), documentée
 
 ### 9. Finitions portfolio
 
@@ -87,6 +97,10 @@ _Dernière mise à jour : 19 octobre 2026._
 ## Hors périmètre (pistes d'évolution)
 
 Exécution planifiée, webhooks, édition collaborative, organisations et rôles, boucles et exécutions parallèles, retries avancés, catalogue d'intégrations, file de jobs.
+
+- **Coffre de secrets** : `{{secrets.NOM}}` dans les nœuds, valeurs chiffrées en base, jamais renvoyées par l'API, masquées dans l'historique. En attendant, une clé saisie dans un nœud est stockée dans le graphe ; seuls les en-têtes au nom sensible sont masqués dans le détail d'exécution.
+- **SSO d'entreprise** (Microsoft Entra ID, Okta… via OIDC ou SAML) : possible avec Firebase / Identity Platform sans changer l'API.
+- **Politique réseau par utilisateur ou par rôle** : demande les rôles ; la politique reste globale au déploiement.
 
 ## Règle de priorité
 
