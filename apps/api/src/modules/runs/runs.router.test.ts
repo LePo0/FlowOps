@@ -32,10 +32,9 @@ describe("historique des exécutions", () => {
   let app: Express;
   let workflowId: string;
 
-  const build = (nodeEnv: "development" | "production") =>
+  const build = () =>
     createApp({
       fetch: fetchMock,
-      nodeEnv,
       auth: fakeAuth,
       workflows,
       runs: createMemoryRunRepository(workflows),
@@ -46,7 +45,7 @@ describe("historique des exécutions", () => {
   beforeEach(async () => {
     workflows = createMemoryWorkflowRepository();
     fetchMock = productsFetch();
-    app = build("development");
+    app = build();
     workflowId = (await workflows.create(ALICE, { name: "Démo", graph: sampleWorkflow })).id;
   });
 
@@ -119,20 +118,5 @@ describe("historique des exécutions", () => {
     expect((await as(app, ALICE).get(`/api/runs/${UNKNOWN}`)).body.errors[0].code).toBe(
       "NOT_FOUND",
     );
-  });
-
-  it("en production, n'exécute pas mais laisse consulter l'historique", async () => {
-    const { body } = await run();
-    app = createApp({
-      fetch: fetchMock,
-      nodeEnv: "production",
-      auth: fakeAuth,
-      workflows,
-      runs: createMemoryRunRepository(workflows),
-    });
-
-    expect((await run()).status).toBe(404);
-    expect((await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`)).status).toBe(200);
-    expect(body.id).toBeDefined();
   });
 });

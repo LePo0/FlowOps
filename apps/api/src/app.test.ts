@@ -8,7 +8,7 @@ import { createMemoryWorkflowRepository } from "./modules/workflows/memory-workf
 const ALICE = "11111111-1111-4111-8111-111111111111";
 
 const appWith = (auth: AuthDeps = fakeAuth) =>
-  createApp({ fetch, nodeEnv: "test", auth, workflows: createMemoryWorkflowRepository() });
+  createApp({ fetch, auth, workflows: createMemoryWorkflowRepository() });
 
 describe("GET /health", () => {
   it("répond 200 avec status ok, sans authentification", async () => {

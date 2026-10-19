@@ -18,9 +18,6 @@ export interface RunsRouterDeps {
   runs: RunRepository;
   workflows: WorkflowRepository;
   fetch: typeof fetch;
-  // Faux en production : le nœud HTTP n'est pas encore protégé contre le SSRF (voir app.ts).
-  // La consultation de l'historique reste possible.
-  allowExecution: boolean;
 }
 
 const IdSchema = z.uuid();
@@ -49,46 +46,44 @@ export function createRunsRouter(deps: RunsRouterDeps): Router {
     return parsed.success ? parsed.data : null;
   };
 
-  if (deps.allowExecution) {
-    // Exécute le graphe envoyé (celui affiché dans l'éditeur, enregistré ou non) et l'historise
-    router.post("/workflows/:id/runs", async (req, res) => {
-      const workflowId = idParam(req, "id");
-      const userId = currentUserId(res);
-      // Vérifié avant d'exécuter : on n'appelle aucune URL pour le workflow d'un autre
-      if (!workflowId || !(await deps.workflows.find(userId, workflowId))) {
-        res.status(404).json(WORKFLOW_NOT_FOUND);
-        return;
-      }
-      const parsed = RunRequestSchema.safeParse(req.body);
-      if (!parsed.success) {
-        res.status(400).json(invalidBody(parsed.error));
-        return;
-      }
+  // Exécute le graphe envoyé (celui affiché dans l'éditeur, enregistré ou non) et l'historise
+  router.post("/workflows/:id/runs", async (req, res) => {
+    const workflowId = idParam(req, "id");
+    const userId = currentUserId(res);
+    // Vérifié avant d'exécuter : on n'appelle aucune URL pour le workflow d'un autre
+    if (!workflowId || !(await deps.workflows.find(userId, workflowId))) {
+      res.status(404).json(WORKFLOW_NOT_FOUND);
+      return;
+    }
+    const parsed = RunRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json(invalidBody(parsed.error));
+      return;
+    }
 
-      const startedAt = new Date();
-      const result = await executeWorkflow(parsed.data.graph, { fetch: deps.fetch });
-      if (result.status === "INVALID") {
-        const body: ApiErrorResponse = { errors: result.errors };
-        res.status(400).json(body);
-        return;
-      }
+    const startedAt = new Date();
+    const result = await executeWorkflow(parsed.data.graph, { fetch: deps.fetch });
+    if (result.status === "INVALID") {
+      const body: ApiErrorResponse = { errors: result.errors };
+      res.status(400).json(body);
+      return;
+    }
 
-      const stored = await deps.runs.record(userId, workflowId, {
-        status: result.status,
-        startedAt,
-        durationMs: result.durationMs,
-        // Déjà validé par le moteur : cette lecture ne fait que typer le graphe
-        graph: WorkflowGraphSchema.parse(parsed.data.graph),
-        nodeResults: result.nodeResults,
-      });
-      if (!stored) {
-        // Workflow supprimé pendant l'exécution
-        res.status(404).json(WORKFLOW_NOT_FOUND);
-        return;
-      }
-      res.status(201).location(`${req.baseUrl}/runs/${stored.id}`).json(toDetail(stored));
+    const stored = await deps.runs.record(userId, workflowId, {
+      status: result.status,
+      startedAt,
+      durationMs: result.durationMs,
+      // Déjà validé par le moteur : cette lecture ne fait que typer le graphe
+      graph: WorkflowGraphSchema.parse(parsed.data.graph),
+      nodeResults: result.nodeResults,
     });
-  }
+    if (!stored) {
+      // Workflow supprimé pendant l'exécution
+      res.status(404).json(WORKFLOW_NOT_FOUND);
+      return;
+    }
+    res.status(201).location(`${req.baseUrl}/runs/${stored.id}`).json(toDetail(stored));
+  });
 
   router.get("/workflows/:id/runs", async (req, res) => {
     const workflowId = idParam(req, "id");

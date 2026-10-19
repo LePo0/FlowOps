@@ -2,7 +2,7 @@
 
 Éditeur visuel de workflows d'API : on assemble des nœuds (déclencheur, requête HTTP, condition, transformation) sur un canvas, on exécute le workflow et on voit le résultat de chaque nœud.
 
-> **Statut** : en développement, usage local uniquement. La route d'exécution est désactivée en production tant que le nœud HTTP n'est pas protégé contre le SSRF (voir la [roadmap](docs/roadmap.md)).
+> **Statut** : en développement, usage local uniquement. Le nœud HTTP est protégé (politique réseau, voir [docs/security/http-node.md](docs/security/http-node.md)) ; une limite d'exécutions par utilisateur reste à faire avant la mise en ligne (voir la [roadmap](docs/roadmap.md)).
 
 ## Démarrage au quotidien
 

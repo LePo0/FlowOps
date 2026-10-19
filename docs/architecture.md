@@ -164,7 +164,6 @@ Le middleware `authenticate()` (`src/auth/`) protège toutes les routes `/api`, 
 - C'est le **graphe affiché dans l'éditeur** qui est exécuté et stocké, même s'il contient des modifications non enregistrées : l'historique montre exactement ce qui a tourné. L'éditeur passe par cette route quand le workflow ouvert est enregistré, et par `POST /api/run` sinon (exécution sans historique).
 - La propriété du workflow est vérifiée **avant** l'exécution : aucune URL n'est appelée pour le workflow d'un autre utilisateur. Un graphe invalide donne `400` avec les codes du moteur et n'est pas enregistré.
 - Enregistrement en une transaction : `WorkflowRun`, ses `NodeRun`, puis suppression des exécutions au-delà des **50 plus récentes** (`MAX_RUNS_PER_WORKFLOW`) : une sortie de nœud HTTP peut atteindre 1 Mo.
-- Comme `/api/run`, la route d'exécution n'est pas montée en production (SSRF) ; la consultation de l'historique reste disponible.
 
 ### `POST /api/run`
 
@@ -179,7 +178,7 @@ Corps : `{ "graph": <WorkflowGraph> }`. Zod valide l'enveloppe, puis `executeWor
 | Corps de plus de 1 Mo                      | `413` `{ errors: [{ code: "PAYLOAD_TOO_LARGE", … }] }`                                   |
 | Erreur inattendue                          | `500` `{ errors: [{ code: "INTERNAL_ERROR", … }] }`, sans stack trace ni détail interne  |
 
-La route n'est **pas montée** si `NODE_ENV=production` : le nœud HTTP n'est pas encore protégé contre le SSRF (voir la section 6 et l'étape « Sécurité du nœud HTTP » de la roadmap).
+Comme toutes les exécutions, elle passe par le fetch gardé du nœud HTTP (politique réseau, voir la section 6).
 
 ## 5. L'éditeur (`apps/web`)
 
@@ -220,7 +219,7 @@ Principes :
 | --------------------------------------------------- | ------------------------------------------------ |
 | Nombre de nœuds et d'arêtes                         | En place                                         |
 | Taille du corps des requêtes API (1 Mo)             | En place                                         |
-| Route `POST /api/run` désactivée en production      | En place, en attendant la protection SSRF        |
+| Limite d'exécutions par utilisateur                 | **À venir, prérequis avant la mise en ligne**    |
 | Timeout par requête HTTP (10 s par défaut)          | En place                                         |
 | Taille maximale de réponse (1 Mo, lue en flux)      | En place                                         |
 | Références sûres (propriétés propres uniquement)    | En place                                         |
