@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { createPrismaClient } from "./db/client.js";
 import { ensureDemoUser } from "./db/demo-user.js";
+import { createPrismaRunRepository } from "./modules/runs/prisma-run.repository.js";
 import { createPrismaWorkflowRepository } from "./modules/workflows/prisma-workflow.repository.js";
 
 if (!env.DATABASE_URL) {
@@ -34,6 +35,7 @@ const app = createApp({
     repository: createPrismaWorkflowRepository(prisma),
     resolveUserId: () => demoUserId,
   },
+  runs: createPrismaRunRepository(prisma),
 });
 
 app.listen(env.PORT, () => {
