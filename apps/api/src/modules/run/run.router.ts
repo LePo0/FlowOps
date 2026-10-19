@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { ApiErrorResponse, RunResult } from "@flowops/shared";
 import { executeWorkflow, type ExecutionDeps } from "../../engine/index.js";
+import { invalidBody } from "../../http/errors.js";
 import { RunRequestSchema } from "./run.schemas.js";
 
 // Les réponses sont typées avec le contrat partagé, que le front valide à la réception
@@ -10,13 +11,7 @@ export function createRunRouter(deps: ExecutionDeps): Router {
   router.post("/", async (req, res) => {
     const parsed = RunRequestSchema.safeParse(req.body);
     if (!parsed.success) {
-      const body: ApiErrorResponse = {
-        errors: parsed.error.issues.map((issue) => ({
-          code: "INVALID_BODY",
-          message: `${issue.path.map(String).join(".") || "corps"} : ${issue.message}`,
-        })),
-      };
-      res.status(400).json(body);
+      res.status(400).json(invalidBody(parsed.error));
       return;
     }
 

@@ -4,10 +4,16 @@ import helmet from "helmet";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRunRouter } from "./modules/run/run.router.js";
+import {
+  createWorkflowsRouter,
+  type WorkflowsRouterDeps,
+} from "./modules/workflows/workflows.router.js";
 
 export interface AppDeps {
   fetch: typeof fetch;
   nodeEnv?: typeof env.NODE_ENV;
+  // Absent : routes /api/workflows non montées (tests de l'exécution, sans base de données)
+  workflows?: WorkflowsRouterDeps;
 }
 
 export function createApp(deps: AppDeps): Express {
@@ -27,6 +33,10 @@ export function createApp(deps: AppDeps): Express {
   // donc qu'en local, jusqu'à l'étape « Sécurité du nœud HTTP » de docs/roadmap.md.
   if (nodeEnv !== "production") {
     app.use("/api/run", createRunRouter({ fetch: deps.fetch }));
+  }
+
+  if (deps.workflows) {
+    app.use("/api/workflows", createWorkflowsRouter(deps.workflows));
   }
 
   app.use(errorHandler);
