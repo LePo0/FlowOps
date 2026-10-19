@@ -20,6 +20,7 @@ Si l'API affiche « Base de données injoignable », c'est que la base n'a pas �
 
 ## Fonctionnalités
 
+- **Comptes** (Firebase Authentication) : connexion Google ou email/mot de passe, inscription avec vérification de l'adresse, mot de passe oublié. Chaque utilisateur ne voit que ses workflows et ses exécutions.
 - **Canvas** (React Flow) : ajout, connexion et configuration des nœuds ; les connexions impossibles (cycle, arête vers le déclencheur…) sont refusées pendant le tracé.
 - **Nœuds** :
   - **Requête HTTP** : méthode, URL, en-têtes, corps, délai ; valeurs issues des nœuds précédents avec `{{http1.body.results.0.url}}`.
@@ -43,15 +44,38 @@ Si l'API affiche « Base de données injoignable », c'est que la base n'a pas �
 
 2. Créer l'instance PostgreSQL locale (port 5433, données hors de OneDrive), le rôle `flowops` et les bases `flowops` et `flowops_test` : procédure dans [docs/architecture.md, section « Base locale »](docs/architecture.md#base-locale).
 
-3. Créer `apps/api/.env` à partir de [`apps/api/.env.example`](apps/api/.env.example) et y mettre le mot de passe du rôle `flowops`. Ce fichier est ignoré par Git.
+3. Créer `apps/api/.env` à partir de [`apps/api/.env.example`](apps/api/.env.example) et y mettre le mot de passe du rôle `flowops` et l'ID du projet Firebase de développement (`FIREBASE_PROJECT_ID`). Ce fichier est ignoré par Git.
 
-4. Appliquer les migrations :
+4. Créer `apps/web/.env.local` avec la configuration web du projet Firebase : voir [Authentification](#authentification).
+
+5. Appliquer les migrations :
 
    ```powershell
    npm run db:migrate -w api
    ```
 
-5. Lancer la base, l'API et l'éditeur comme dans [Démarrage au quotidien](#démarrage-au-quotidien).
+6. Lancer la base, l'API et l'éditeur comme dans [Démarrage au quotidien](#démarrage-au-quotidien).
+
+### Authentification
+
+FlowOps utilise deux projets Firebase : `flowops-dev-…` en local, `flowops-prod-…` pour la mise en ligne. Les comptes de test ne se mélangent jamais avec ceux de production.
+
+Dans la [console Firebase](https://console.firebase.google.com/), pour chaque projet :
+
+1. **Authentication > Sign-in method** : activer **Google** (avec une adresse email d'assistance) et **Adresse e-mail/Mot de passe**.
+2. **Authentication > Paramètres > Domaines autorisés** : `localhost` pour le projet de développement, le domaine de l'éditeur pour la production.
+3. **Paramètres du projet > Général > Vos applications** : ajouter une application web, puis recopier sa configuration dans `apps/web/.env.local` (ignoré par Git) :
+
+   ```dotenv
+   VITE_FIREBASE_API_KEY=AIza…
+   VITE_FIREBASE_AUTH_DOMAIN=flowops-dev-xxxx.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=flowops-dev-xxxx
+   VITE_FIREBASE_APP_ID=1:…:web:…
+   ```
+
+   Ces valeurs ne sont pas secrètes : elles sont servies au navigateur. L'API n'a besoin que de l'ID du projet (`FIREBASE_PROJECT_ID` dans `apps/api/.env`), pour n'accepter que les jetons émis pour celui-ci.
+
+Les comptes email/mot de passe doivent vérifier leur adresse avant d'accéder à l'éditeur (l'API répond `403` sinon). Les tests n'utilisent pas Firebase : aucune configuration n'est nécessaire pour `npm test` ni en CI.
 
 ### Derrière un proxy d'entreprise
 

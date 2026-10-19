@@ -8,9 +8,10 @@ FlowOps est un monolithe modulaire dans un monorepo npm workspaces.
 
 ```mermaid
 flowchart LR
-  Web["apps/web<br/>React + React Flow"] -->|HTTP JSON| Api["apps/api<br/>Express"]
+  Web["apps/web<br/>React + React Flow"] -->|HTTP JSON + jeton| Api["apps/api<br/>Express"]
+  Web -->|connexion| Auth["Firebase Auth"]
   Api --> Engine["engine/<br/>validation + exécution"]
-  Api -.->|à venir| Db[("PostgreSQL<br/>via Prisma")]
+  Api --> Db[("PostgreSQL<br/>via Prisma")]
   Web --> Shared["packages/shared<br/>schémas Zod + types"]
   Api --> Shared
   Engine --> Shared
@@ -91,7 +92,7 @@ Un handler par type de nœud, contrat commun : il reçoit le nœud et un context
 
 ## 4. L'API (`apps/api`)
 
-`createApp({ fetch, nodeEnv? })` construit l'application Express. Le `fetch` est injecté jusqu'au moteur, ce qui permet aux tests Supertest de ne jamais toucher le réseau. `app.ts` exporte aussi un `app` par défaut construit avec le `fetch` global, utilisé par `index.ts`.
+`createApp({ fetch, auth, workflows?, runs?, nodeEnv? })` construit l'application Express ; `index.ts` lui passe les implémentations réelles (Prisma, vérificateur Firebase). Le `fetch` est injecté jusqu'au moteur, ce qui permet aux tests Supertest de ne jamais toucher le réseau.
 
 Organisation : une route par module (`src/modules/<nom>/` : routeur + schémas), middlewares transverses dans `src/middleware/`.
 
@@ -99,10 +100,43 @@ En développement, `npm run dev:api` lance Node avec `--use-system-ca` : Node fa
 
 | Route                                         | Rôle                                                                           |
 | --------------------------------------------- | ------------------------------------------------------------------------------ |
-| `GET /health`                                 | Sonde de disponibilité : `{ "status": "ok" }`                                  |
+| `GET /health`                                 | Sonde de disponibilité : `{ "status": "ok" }` (seule route publique)           |
 | `POST /api/run`                               | Exécute un graphe envoyé dans le corps (**local uniquement**, voir ci-dessous) |
 | `/api/workflows`                              | CRUD des workflows de l'utilisateur courant (voir ci-dessous)                  |
 | `/api/workflows/:id/runs`, `/api/runs/:runId` | Historique des exécutions d'un workflow enregistré (voir ci-dessous)           |
+
+### Authentification
+
+Les comptes sont gérés par **Firebase Authentication** (Google et email/mot de passe). FlowOps ne stocke aucun mot de passe : l'éditeur obtient un **jeton d'identité** (JWT signé par Google, valable une heure, renouvelé par le SDK) et l'envoie sur chaque appel (`Authorization: Bearer <jeton>`). Pas de cookie, donc pas de CSRF.
+
+```mermaid
+sequenceDiagram
+  participant W as Éditeur
+  participant F as Firebase Auth
+  participant A as API
+  participant G as Clés publiques Google
+  W->>F: connexion (Google ou email/mot de passe)
+  F-->>W: jeton d'identité
+  W->>A: GET /api/workflows (Bearer jeton)
+  A->>G: clés de signature (mises en cache)
+  A->>A: vérifie le jeton, retrouve ou crée le User
+  A-->>W: 200, données de cet utilisateur uniquement
+```
+
+Le middleware `authenticate()` (`src/auth/`) protège toutes les routes `/api`, `/api/run` compris ; seul `/health` est public. Il passe **avant** la lecture du corps JSON : une requête anonyme est refusée sans être analysée.
+
+| Cas                                                     | Réponse                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| En-tête absent, autre schéma que `Bearer`, jeton refusé | `401` `UNAUTHENTICATED`                                                               |
+| Jeton valide mais adresse email non vérifiée            | `403` `EMAIL_NOT_VERIFIED` (sinon, on pourrait ouvrir un compte à l'adresse d'autrui) |
+| Clés publiques injoignables (réseau, proxy)             | `500` journalisé : une panne n'est pas confondue avec un jeton invalide               |
+| Ressource d'un autre utilisateur                        | `404`, comme une ressource inexistante                                                |
+
+- **Vérification du jeton** (`firebase-token-verifier.ts`) avec `jose`, selon la méthode documentée par Firebase pour les bibliothèques JWT tierces : signature RS256 par les clés publiques de Google, `aud` = projet, `iss` = `https://securetoken.google.com/<projet>`, `exp` futur, `iat` et `auth_time` passés, `sub` non vide. `firebase-admin` n'est pas utilisé : il renvoie la même erreur pour un jeton falsifié et pour un échec de téléchargement des clés.
+- **Identité** : l'utilisateur est retrouvé par l'uid Firebase (`User.authUid`) et créé à sa première requête (`prisma-user-directory.ts`, sans écriture tant que l'email et le nom ne changent pas). L'email n'est pas une clé : il peut changer, et deux comptes Firebase peuvent le partager.
+- **Tests** : `createApp` reçoit `auth: { verifyToken, users }`. Les tests de routes utilisent un double (`test-support/fake-auth.ts` : le jeton est l'identifiant de l'utilisateur) mais passent par le vrai middleware. Le vérificateur est testé avec des jetons signés par une clé locale, sans réseau.
+- **CORS** limité à `CORS_ORIGIN` (l'éditeur).
+- Le serveur refuse de démarrer sans `DATABASE_URL` ni `FIREBASE_PROJECT_ID`. Deux projets Firebase séparés : `-dev` pour le local, `-prod` pour la mise en ligne.
 
 ### `/api/workflows`
 
@@ -117,7 +151,6 @@ En développement, `npm run dev:api` lance Node avec `--use-system-ca` : Node fa
 - Corps validés avec le contrat partagé (`SaveWorkflowRequestSchema`) : `400` `INVALID_BODY` sinon. Le graphe doit être complet (mêmes règles qu'à l'exécution) : un brouillon avec un champ vide ne s'enregistre pas.
 - Un identifiant inconnu, mal formé ou appartenant à un autre utilisateur donne le même `404` `NOT_FOUND` : on ne révèle pas l'existence d'un workflow d'autrui.
 - Accès aux données via une interface `WorkflowRepository` : implémentation Prisma en production, en mémoire pour les tests de routes.
-- En attendant l'authentification, toutes les requêtes appartiennent à un **utilisateur de démonstration** (`demo@flowops.local`), créé au démarrage. Le serveur refuse de démarrer sans `DATABASE_URL`.
 
 ### Historique des exécutions
 
@@ -161,19 +194,21 @@ flowchart LR
   Run -->|sortie, erreur| Panel
 ```
 
-| Module                       | Rôle                                                                                                                                                                                                        |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `editor/graph.ts`            | `fromGraph()` / `toGraph()` : la `branch` d'une arête devient la poignée de sortie (`sourceHandle`) de la condition                                                                                         |
-| `editor/store.ts`            | Nœuds et arêtes, callbacks de React Flow, ajout, édition, suppression, sélection                                                                                                                            |
-| `editor/connection-rules.ts` | Refuse pendant le tracé ce que le moteur rejetterait : boucle, arête vers le déclencheur, doublon, cycle, branche incohérente                                                                               |
-| `editor/nodes/`              | Un composant par type de nœud ; la condition a deux sorties `true` / `false`                                                                                                                                |
-| `editor/panel/`              | Formulaire du nœud sélectionné, validé avec le schéma Zod partagé (messages en français)                                                                                                                    |
-| `run/`                       | Client de `POST /api/run`, store d'exécution, statuts affichés sur les nœuds et dans le panneau                                                                                                             |
-| `workflows/`                 | Document courant : nom, enregistrement (bouton et Ctrl+S), « Ouvrir… » et « Nouveau », état enregistré ou modifié, dernier workflow rouvert au rechargement, confirmation avant de perdre des modifications |
+| Module                       | Rôle                                                                                                                                                                                                                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth/`                      | Connexion Firebase (Google, email/mot de passe, inscription, mot de passe oublié, vérification de l'email), `authFetch` qui ajoute le jeton à chaque appel et ramène à la connexion sur un `401`, menu utilisateur. Firebase est derrière une interface `AuthClient` : le store se teste sans réseau |
+| `editor/graph.ts`            | `fromGraph()` / `toGraph()` : la `branch` d'une arête devient la poignée de sortie (`sourceHandle`) de la condition                                                                                                                                                                                  |
+| `editor/store.ts`            | Nœuds et arêtes, callbacks de React Flow, ajout, édition, suppression, sélection                                                                                                                                                                                                                     |
+| `editor/connection-rules.ts` | Refuse pendant le tracé ce que le moteur rejetterait : boucle, arête vers le déclencheur, doublon, cycle, branche incohérente                                                                                                                                                                        |
+| `editor/nodes/`              | Un composant par type de nœud ; la condition a deux sorties `true` / `false`                                                                                                                                                                                                                         |
+| `editor/panel/`              | Formulaire du nœud sélectionné, validé avec le schéma Zod partagé (messages en français)                                                                                                                                                                                                             |
+| `run/`                       | Client de `POST /api/run`, store d'exécution, statuts affichés sur les nœuds et dans le panneau                                                                                                                                                                                                      |
+| `workflows/`                 | Document courant : nom, enregistrement (bouton et Ctrl+S), « Ouvrir… » et « Nouveau », état enregistré ou modifié, dernier workflow rouvert au rechargement, confirmation avant de perdre des modifications                                                                                          |
 
 Principes :
 
 - **L'API reste l'autorité.** L'éditeur valide pour donner un retour immédiat (champ manquant, connexion impossible), mais l'API revalide tout le graphe à l'exécution.
+- **Rien d'un compte ne survit à la déconnexion** : l'éditeur repart d'un workflow vierge et le « dernier workflow ouvert » est oublié.
 - **Un seul déclencheur** : le bouton d'ajout se désactive dès qu'il en existe un.
 - **La condition compare en strict** (`===`) : le panneau impose un type explicite (texte, nombre, booléen) pour la valeur attendue, et le nœud affiche un texte entre guillemets.
 - Les champs propres à React Flow (`selected`, `measured`, …) ne sortent jamais de l'éditeur : `toGraph()` ne garde que le contrat.
@@ -188,6 +223,8 @@ Principes :
 | Timeout par requête HTTP (10 s par défaut)          | En place                                         |
 | Taille maximale de réponse (vérifiée après lecture) | En place                                         |
 | Références sûres (propriétés propres uniquement)    | En place                                         |
+| Authentification sur toutes les routes `/api`       | En place (Firebase, email vérifié obligatoire)   |
+| CORS limité à l'origine de l'éditeur                | En place                                         |
 | Blocage des adresses locales et privées (SSRF)      | **À venir, prérequis avant toute mise en ligne** |
 | Revalidation des redirections                       | À venir                                          |
 | Lecture de la réponse en flux avec coupure          | À venir                                          |
@@ -198,12 +235,12 @@ Principes :
 
 PostgreSQL et Prisma 7 (`apps/api/prisma/schema.prisma`). Prisma 7 se connecte via le pilote `pg` (`@prisma/adapter-pg`) ; le client est généré dans `apps/api/src/generated/prisma` (ignoré par Git, régénéré à chaque `npm install`).
 
-| Table         | Contenu                                                                                                                |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `User`        | Identité (`email` unique). Présent dès maintenant pour que l'authentification n'impose pas de migrer toutes les tables |
-| `Workflow`    | `userId`, `name`, `graphJson` (JSONB, validé avec le schéma Zod partagé avant écriture), dates                         |
-| `WorkflowRun` | Statut, début, durée, **copie du graphe exécuté** : l'historique reste cohérent même si le workflow est modifié        |
-| `NodeRun`     | Un enregistrement par nœud, dans l'ordre d'exécution : statut, entrée, sortie, erreur, détail technique, durée         |
+| Table         | Contenu                                                                                                         |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `User`        | Compte Firebase : `authUid` (unique, clé d'identité), `email`, `name` ; créé à la première requête              |
+| `Workflow`    | `userId`, `name`, `graphJson` (JSONB, validé avec le schéma Zod partagé avant écriture), dates                  |
+| `WorkflowRun` | Statut, début, durée, **copie du graphe exécuté** : l'historique reste cohérent même si le workflow est modifié |
+| `NodeRun`     | Un enregistrement par nœud, dans l'ordre d'exécution : statut, entrée, sortie, erreur, détail technique, durée  |
 
 Suppressions en cascade : un utilisateur emporte ses workflows, un workflow ses exécutions. Un utilisateur ne voit que ses propres workflows et exécutions.
 

@@ -44,8 +44,8 @@ _Dernière mise à jour : 19 octobre 2026._
 - [x] API : jeton Firebase vérifié avec `jose` (signature, projet, émetteur, dates), 401 sans jeton valide, 403 si l'email n'est pas vérifié, `User.authUid`, utilisateur de démonstration supprimé, CORS limité à l'éditeur
 - [x] Isolation des données par utilisateur : toutes les routes `/api` derrière l'authentification, 404 sur les ressources d'autrui
 - [x] Tests d'isolation et du vérificateur (jetons signés par une clé de test, sans réseau)
-- [ ] Éditeur : écran de connexion (Google, email/mot de passe, inscription, mot de passe oublié), jeton sur chaque appel, déconnexion qui vide l'état local
-- [ ] Documentation : configuration Firebase et variables d'environnement
+- [x] Éditeur : écran de connexion (Google, email/mot de passe, inscription, mot de passe oublié), jeton sur chaque appel, déconnexion qui vide l'état local
+- [x] Documentation : configuration Firebase et variables d'environnement
 
 ### 5. Sécurité du nœud HTTP
 
