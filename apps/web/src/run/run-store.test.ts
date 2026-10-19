@@ -24,10 +24,24 @@ describe("useRunStore", () => {
 
     await store.getState().run(nodes, edges);
 
-    expect(runApi).toHaveBeenCalledWith(sampleWorkflow);
+    expect(runApi).toHaveBeenCalledWith(sampleWorkflow, null);
     expect(store.getState().running).toBe(false);
     expect(store.getState().resultsByNode["http1"]?.error).toBe("fetch failed");
     expect(store.getState().resultsByNode["names"]?.status).toBe("SKIPPED");
+  });
+
+  it("transmet l'identifiant du workflow enregistré pour historiser l'exécution", async () => {
+    const runApi = vi.fn(async (): Promise<RunOutcome> => ({
+      kind: "executed",
+      result: executed,
+      runId: "r1",
+    }));
+    const store = createRunStore(runApi);
+
+    await store.getState().run(nodes, edges, "wf-1");
+
+    expect(runApi).toHaveBeenCalledWith(sampleWorkflow, "wf-1");
+    expect(store.getState().outcome).toMatchObject({ kind: "executed", runId: "r1" });
   });
 
   it("signale les nœuds incomplets sans appeler l'API", async () => {
