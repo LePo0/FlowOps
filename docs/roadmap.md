@@ -102,6 +102,7 @@ Exécution planifiée, webhooks, édition collaborative, organisations et rôles
 - **Coffre de secrets** : `{{secrets.NOM}}` dans les nœuds, valeurs chiffrées en base, jamais renvoyées par l'API, masquées dans l'historique. En attendant, une clé saisie dans un nœud est stockée dans le graphe ; seuls les en-têtes au nom sensible sont masqués dans le détail d'exécution.
 - **SSO d'entreprise** (Microsoft Entra ID, Okta… via OIDC ou SAML) : possible avec Firebase / Identity Platform sans changer l'API.
 - **Politique réseau par utilisateur ou par rôle** : demande les rôles ; la politique reste globale au déploiement.
+- **Versions d'un workflow** : enregistrer une version, ou en créer une autre sans dupliquer le workflow. Depuis l'historique : aperçu du graphe exécuté en lecture seule (statut de chaque nœud, branche prise), puis ouverture de cette version dans l'éditeur pour la corriger et la rejouer, sans perdre la version en cours.
 
 ## Règle de priorité
 
