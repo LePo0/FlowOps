@@ -20,7 +20,7 @@ _Dernière mise à jour : 19 octobre 2026._
 - [x] Validation de l'entrée avec Zod
 - [x] 400 pour un graphe invalide, 200 avec les résultats par nœud
 - [x] Tests Supertest
-- Usage local uniquement tant que la sécurité du nœud HTTP n'est pas faite (route non montée si `NODE_ENV=production`)
+- Montée dans tous les environnements depuis l'étape 5 (sécurité du nœud HTTP)
 
 ### 2. Canvas React Flow
 
@@ -52,17 +52,17 @@ _Dernière mise à jour : 19 octobre 2026._
 FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une entreprise pour appeler ses API internes. La protection repose donc sur une politique réseau fixée par l'administrateur du déploiement, pas sur un blocage figé. Scénarios et résultats attendus : [`docs/security/http-node.md`](security/http-node.md).
 
 - [x] Scénarios de sécurité rédigés avant le développement
-- [ ] Politique réseau des cibles (SSRF), vérifiée sur l'adresse IP résolue et appliquée à la connexion, y compris pour les URL construites avec des `{{références}}` :
+- [x] Politique réseau des cibles (SSRF), vérifiée sur l'adresse IP résolue et appliquée à la connexion, y compris pour les URL construites avec des `{{références}}` :
   - par défaut, adresses publiques uniquement ;
   - `HTTP_ALLOWED_TARGETS` : réseaux et domaines internes ouverts par l'administrateur ;
   - `HTTP_DENIED_TARGETS` : exclusions qui l'emportent sur la liste précédente (ex. le réseau de la base de FlowOps) ;
   - toujours interdits, quelle que soit la configuration : boucle locale, adresses de lien local (dont le serveur de métadonnées du cloud), adresse non spécifiée
-- [ ] Redirections suivies par FlowOps : 5 au maximum, chacune revalidée, en-têtes sensibles retirés quand le domaine change
-- [ ] Lecture de la réponse en flux, coupée au-delà de 1 Mo décompressé
-- [ ] Durée maximale d'une exécution (échéance globale)
-- [ ] Message unique pour une cible refusée : pas d'indice sur l'existence d'une machine ou d'un port
-- [ ] Scénarios traduits en tests automatisés, puis vérification finale sur l'application lancée en local
-- [ ] Exécution montée en production une fois les points précédents faits
+- [x] Redirections suivies par FlowOps : 5 au maximum, chacune revalidée, en-têtes sensibles retirés quand le domaine change
+- [x] Lecture de la réponse en flux, coupée au-delà de 1 Mo décompressé
+- [x] Durée maximale d'une exécution (échéance globale), 60 s par défaut
+- [x] Message unique pour une cible refusée : pas d'indice sur l'existence d'une machine ou d'un port
+- [x] Scénarios traduits en tests automatisés, puis vérification finale sur l'application lancée en local
+- [x] Exécution montée en production une fois les points précédents faits
 - **Prérequis avant toute mise en ligne**
 
 ### 6. Débogage dans l'interface
@@ -79,6 +79,7 @@ FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une ent
 
 ### 8. Déploiement
 
+- [ ] **Limite d'exécutions par utilisateur, prérequis avant la mise en ligne** : avec l'inscription ouverte, rien n'empêche aujourd'hui un compte de lancer des exécutions en boucle (relais pour inonder un site tiers depuis nos adresses, facture Cloud Run). Par exemple 30 exécutions par minute et par compte, `429` au-delà ; à cadrer : seuils, compteur partagé entre plusieurs instances
 - [ ] Dockerfile de l'API
 - [ ] Cloud Run et base managée
 - [ ] Frontend sur Firebase Hosting

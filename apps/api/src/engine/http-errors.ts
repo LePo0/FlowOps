@@ -1,9 +1,9 @@
 // Traduit une erreur levée par fetch en message compréhensible pour l'utilisateur.
 // fetch (undici) lève un TypeError générique "fetch failed" : la vraie raison est dans `cause`.
 //
-// Ces messages distinguent « refusé », « introuvable » et « délai dépassé » : utile en local,
-// mais c'est aussi un oracle pour sonder un réseau interne. À revoir avec la protection SSRF
-// (roadmap, étape « Sécurité du nœud HTTP ») avant toute mise en ligne.
+// Ces messages distinguent « refusé », « introuvable » et « délai dépassé ». Ils ne concernent
+// que des cibles autorisées par la politique réseau : une cible refusée donne toujours le même
+// message, sans cause (TargetDeniedError), ce qui empêche de sonder un réseau interne.
 
 const CERTIFICATE_CODES = new Set([
   "SELF_SIGNED_CERT_IN_CHAIN",

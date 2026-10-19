@@ -13,7 +13,6 @@ const BOB = "22222222-2222-4222-8222-222222222222";
 function testApp(repository: WorkflowRepository): Express {
   return createApp({
     fetch,
-    nodeEnv: "test",
     auth: fakeAuth,
     workflows: repository,
   });
@@ -120,7 +119,7 @@ describe("/api/workflows", () => {
   });
 
   it("n'est pas montée sans dépôt", async () => {
-    const withoutDb = createApp({ fetch, nodeEnv: "test", auth: fakeAuth });
+    const withoutDb = createApp({ fetch, auth: fakeAuth });
 
     expect((await as(withoutDb, ALICE).get("/api/workflows")).status).toBe(404);
   });

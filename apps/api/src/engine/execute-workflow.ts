@@ -2,6 +2,7 @@ import { topologicalSort, type WorkflowEdge } from "@flowops/shared";
 import { runHandler } from "./handlers.js";
 import { NodeError, technicalDetail } from "./node-error.js";
 import type { ExecutionDeps, ExecutionResult, HandlerContext, NodeResult } from "./types.js";
+import { DEFAULT_MAX_DURATION_MS, deadlineMessage } from "./limits.js";
 import { validateGraph } from "./validate-graph.js";
 
 export async function executeWorkflow(
@@ -24,7 +25,13 @@ export async function executeWorkflow(
     incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge]);
   }
 
-  const ctx: HandlerContext = { outputs: new Map(), fetch: deps.fetch };
+  const maxDurationMs = deps.maxDurationMs ?? DEFAULT_MAX_DURATION_MS;
+  const ctx: HandlerContext = {
+    outputs: new Map(),
+    fetch: deps.fetch,
+    deadline: AbortSignal.timeout(maxDurationMs),
+    maxDurationMs,
+  };
   const succeeded = new Set<string>();
   const selectedBranch = new Map<string, "true" | "false">();
   const nodeResults: NodeResult[] = [];
@@ -50,6 +57,17 @@ export async function executeWorkflow(
     }
 
     const start = performance.now();
+    // Échéance atteinte entre deux nœuds : celui-ci échoue, les suivants sont ignorés
+    if (ctx.deadline.aborted) {
+      failed = true;
+      nodeResults.push({
+        nodeId: id,
+        status: "FAILED",
+        error: deadlineMessage(maxDurationMs),
+        durationMs: 0,
+      });
+      continue;
+    }
     try {
       const result = await runHandler(node, ctx);
       ctx.outputs.set(id, result.output);

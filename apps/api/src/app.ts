@@ -12,8 +12,8 @@ import type { WorkflowRepository } from "./modules/workflows/workflow.repository
 import { createWorkflowsRouter } from "./modules/workflows/workflows.router.js";
 
 export interface AppDeps {
+  // fetch du nœud HTTP : en production, le fetch gardé par la politique réseau (index.ts)
   fetch: typeof fetch;
-  nodeEnv?: typeof env.NODE_ENV;
   // Toutes les routes /api exigent un utilisateur authentifié
   auth: AuthDeps;
   // Absent : routes /api/workflows non montées (tests de l'exécution, sans base de données)
@@ -23,7 +23,6 @@ export interface AppDeps {
 }
 
 export function createApp(deps: AppDeps): Express {
-  const nodeEnv = deps.nodeEnv ?? env.NODE_ENV;
   const app = express();
 
   app.use(helmet());
@@ -38,23 +37,12 @@ export function createApp(deps: AppDeps): Express {
   app.use("/api", authenticate(deps.auth));
   app.use(express.json({ limit: "1mb" }));
 
-  // Le nœud HTTP n'est pas encore protégé contre le SSRF : exposée en ligne, cette route
-  // permettrait d'appeler des adresses locales ou privées depuis le serveur. On ne la monte
-  // donc qu'en local, jusqu'à l'étape « Sécurité du nœud HTTP » de docs/roadmap.md.
-  if (nodeEnv !== "production") {
-    app.use("/api/run", createRunRouter({ fetch: deps.fetch }));
-  }
+  app.use("/api/run", createRunRouter({ fetch: deps.fetch }));
 
   if (deps.workflows && deps.runs) {
     app.use(
       "/api",
-      createRunsRouter({
-        runs: deps.runs,
-        workflows: deps.workflows,
-        fetch: deps.fetch,
-        // Même règle que /api/run ci-dessus
-        allowExecution: nodeEnv !== "production",
-      }),
+      createRunsRouter({ runs: deps.runs, workflows: deps.workflows, fetch: deps.fetch }),
     );
   }
 

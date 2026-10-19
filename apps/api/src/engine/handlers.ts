@@ -1,17 +1,53 @@
 import type { ConditionNode, HttpNode, TransformNode, WorkflowNode } from "@flowops/shared";
 import { compare } from "./compare.js";
 import { describeFetchError } from "./http-errors.js";
+import { DEFAULT_TIMEOUT_MS, MAX_RESPONSE_BYTES, deadlineMessage } from "./limits.js";
+import { TargetDeniedError } from "./network/guarded-fetch.js";
+import { SENSITIVE_HEADER } from "./network/sensitive-header.js";
 import { NodeError } from "./node-error.js";
 import { resolveReference } from "./resolve-reference.js";
 import { interpolate } from "./template.js";
 import { applyTransform } from "./transform.js";
 import type { HandlerContext, HandlerResult } from "./types.js";
 
-const DEFAULT_TIMEOUT_MS = 10_000;
-const MAX_RESPONSE_CHARS = 1_000_000;
+class ResponseTooLargeError extends Error {}
 
-// En-têtes dont la valeur ne doit pas réapparaître dans le détail d'exécution
-const SENSITIVE_HEADER = /authorization|cookie|token|secret|api[-_]?key/i;
+/**
+ * Lit le corps en flux et s'arrête dès que MAX_RESPONSE_BYTES est dépassé : une réponse de
+ * plusieurs Go ne passe jamais en mémoire. La taille annoncée (Content-Length) permet de refuser
+ * sans rien lire, mais elle peut mentir : seuls les octets reçus font foi.
+ */
+async function readLimited(response: Response, signal: AbortSignal): Promise<string> {
+  if (Number(response.headers.get("content-length")) > MAX_RESPONSE_BYTES) {
+    await response.body?.cancel().catch(() => {});
+    throw new ResponseTooLargeError();
+  }
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  // Le délai couvre la lecture, même si le fetch ne propage pas lui-même le signal au corps
+  const onAbort = () => void reader.cancel(signal.reason).catch(() => {});
+  signal.addEventListener("abort", onAbort, { once: true });
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      // Une lecture interrompue par l'annulation se termine « done » : ce n'est pas la fin du corps
+      if (signal.aborted) throw signal.reason;
+      if (done) return text + decoder.decode();
+      received += value.byteLength;
+      if (received > MAX_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw new ResponseTooLargeError();
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+}
 
 function maskHeaders(headers: Record<string, string> | undefined) {
   if (headers === undefined) return undefined;
@@ -54,16 +90,19 @@ async function runHttp(node: HttpNode, ctx: HandlerContext): Promise<HandlerResu
 
   let response: Response;
   let text: string;
+  // Délai du nœud ou échéance globale de l'exécution, le premier atteint
+  const signal = AbortSignal.any([AbortSignal.timeout(timeout), ctx.deadline]);
   try {
-    response = await ctx.fetch(url, {
-      method,
-      headers,
-      body,
-      signal: AbortSignal.timeout(timeout),
-    });
-    // La lecture du corps est couverte par le même délai
-    text = await response.text();
+    response = await ctx.fetch(url, { method, headers, body, signal });
+    text = await readLimited(response, signal);
   } catch (error) {
+    // Cible refusée : message unique et aucune cause jointe (ni adresse, ni erreur réseau)
+    if (error instanceof TargetDeniedError) throw new NodeError(error.message, { input });
+    if (error instanceof ResponseTooLargeError) {
+      throw new NodeError("Réponse trop volumineuse", { input });
+    }
+    if (ctx.deadline.aborted) throw new NodeError(deadlineMessage(ctx.maxDurationMs), { input });
+
     let message = describeFetchError(error, timeout);
     // Erreur fréquente : une référence écrite sans accolades (http1.body.url)
     const firstSegment = url.split(".")[0];
@@ -71,10 +110,6 @@ async function runHttp(node: HttpNode, ctx: HandlerContext): Promise<HandlerResu
       message = `URL invalide. Pour utiliser une valeur d'un nœud, écrivez {{${url}}}`;
     }
     throw new NodeError(message, { input, cause: error });
-  }
-
-  if (text.length > MAX_RESPONSE_CHARS) {
-    throw new NodeError("Réponse trop volumineuse", { input });
   }
 
   let parsedBody: unknown = text;

@@ -2,7 +2,7 @@
 
 Éditeur visuel de workflows d'API : on assemble des nœuds (déclencheur, requête HTTP, condition, transformation) sur un canvas, on exécute le workflow et on voit le résultat de chaque nœud.
 
-> **Statut** : en développement, usage local uniquement. La route d'exécution est désactivée en production tant que le nœud HTTP n'est pas protégé contre le SSRF (voir la [roadmap](docs/roadmap.md)).
+> **Statut** : en développement, usage local uniquement. Le nœud HTTP est protégé (politique réseau, voir [docs/security/http-node.md](docs/security/http-node.md)) ; une limite d'exécutions par utilisateur reste à faire avant la mise en ligne (voir la [roadmap](docs/roadmap.md)).
 
 ## Démarrage au quotidien
 
@@ -74,6 +74,19 @@ Dans la [console Firebase](https://console.firebase.google.com/), pour chaque pr
    ```
 
    Ces valeurs ne sont pas secrètes : elles sont servies au navigateur. L'API n'a besoin que de l'ID du projet (`FIREBASE_PROJECT_ID` dans `apps/api/.env`), pour n'accepter que les jetons émis pour celui-ci.
+
+### Appels vers un réseau interne
+
+Par défaut, le nœud HTTP n'appelle que des adresses publiques : `localhost`, les réseaux privés et le serveur de métadonnées du cloud sont refusés (« Adresse non autorisée »). Pour une installation en entreprise, l'administrateur ouvre explicitement des réseaux ou des domaines dans `apps/api/.env` :
+
+```dotenv
+HTTP_ALLOWED_TARGETS=10.20.0.0/16,*.interne.entreprise.fr
+HTTP_DENIED_TARGETS=10.20.99.0/24   # exclusions, prioritaires (ex. le réseau de la base de FlowOps)
+```
+
+La boucle locale et le serveur de métadonnées restent toujours interdits. Règles et scénarios vérifiés : [docs/security/http-node.md](docs/security/http-node.md).
+
+### Vérification de l'adresse email
 
 Les comptes email/mot de passe doivent vérifier leur adresse avant d'accéder à l'éditeur (l'API répond `403` sinon). Les tests n'utilisent pas Firebase : aucune configuration n'est nécessaire pour `npm test` ni en CI.
 
