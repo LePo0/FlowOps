@@ -67,9 +67,9 @@ FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une ent
 
 ### 6. Débogage dans l'interface
 
-- [ ] Historique des exécutions
-- [ ] Détail par nœud (entrée, sortie, durée, erreur)
-- [ ] Relance d'une exécution
+- [x] Historique des exécutions : fenêtre « Historique » d'un workflow enregistré (50 dernières exécutions)
+- [x] Détail par nœud (entrée, sortie, durée, erreur), noms tirés de la copie du graphe exécuté
+- [x] Relance d'une exécution : rejoue la copie du graphe stockée, telle qu'elle a tourné, et l'ajoute à l'historique
 
 ### 7. Tests complémentaires
 

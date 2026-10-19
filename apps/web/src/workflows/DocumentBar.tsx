@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { HistoryDialog } from "../history/HistoryDialog.tsx";
+import { UNTITLED } from "./document-store.ts";
 import { OpenDialog } from "./OpenDialog.tsx";
 import { blankWorkflow, useDocumentStore, useIsDirty } from "./use-document.ts";
 import "./workflows.css";
@@ -21,6 +23,7 @@ export function DocumentBar() {
   );
   const dirty = useIsDirty();
   const [openDialog, setOpenDialog] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Au chargement de la page : rouvre le dernier workflow ouvert
   useEffect(() => {
@@ -89,6 +92,19 @@ export function DocumentBar() {
       >
         Nouveau
       </button>
+      <button
+        type="button"
+        className="button"
+        disabled={id === null}
+        title={
+          id === null
+            ? "Enregistrez le workflow pour garder l'historique de ses exécutions"
+            : undefined
+        }
+        onClick={() => setHistoryOpen(true)}
+      >
+        Historique
+      </button>
       <span
         className={`document-bar__status${dirty ? " document-bar__status--dirty" : ""}`}
         role="status"
@@ -101,6 +117,13 @@ export function DocumentBar() {
         </p>
       )}
       {openDialog && <OpenDialog canDiscard={canDiscard} onClose={() => setOpenDialog(false)} />}
+      {historyOpen && id !== null && (
+        <HistoryDialog
+          workflowId={id}
+          workflowName={name.trim() || UNTITLED}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
     </div>
   );
 }
