@@ -4,3 +4,4 @@ export { sampleWorkflow } from "./fixtures/sample-workflow.js";
 export { topologicalSort } from "./topological-sort.js";
 export * from "./run.js";
 export * from "./workflows-api.js";
+export * from "./runs-api.js";
