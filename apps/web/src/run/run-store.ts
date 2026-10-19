@@ -2,6 +2,7 @@ import type { ApiError, NodeResult, WorkflowGraph } from "@flowops/shared";
 import { create } from "zustand";
 import { toGraph, type FlowEdge, type FlowNode } from "../editor/graph.ts";
 import { validateNode } from "../editor/panel/form-values.ts";
+import { authFetch } from "../auth/session.ts";
 import { postRun, type RunOutcome } from "./api.ts";
 
 export interface RunState {
@@ -88,4 +89,6 @@ export function createRunStore(
   }));
 }
 
-export const useRunStore = createRunStore();
+export const useRunStore = createRunStore((graph, workflowId) =>
+  postRun(graph, { workflowId, fetchImpl: authFetch }),
+);
