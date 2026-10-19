@@ -235,8 +235,8 @@ Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et appliq
 
 - Tests : Vitest (+ Supertest pour l'API). Le moteur est testé sans réseau.
 - Tests d'intégration de l'API sur une vraie base PostgreSQL (`TEST_DATABASE_URL`) : Vitest y applique les migrations avant de lancer les tests, et ne leur transmet jamais `DATABASE_URL`. Sans base de test, ils sont ignorés en local mais font échouer la CI, où un service `postgres:18` jetable est fourni.
-- CI GitLab : `lint`, `typecheck`, `test` en parallèle, sur merge requests et sur `main`.
-- Workflow Git : `main` protégé, branches courtes, merge requests avec squash.
+- CI GitHub Actions : `lint`, `typecheck`, `test` et `format` en parallèle, sur pull requests et sur `main`.
+- Workflow Git : `main` protégé, branches courtes, pull requests avec squash.
 - Déploiement cible (à venir) : Docker, Cloud Run, base managée, frontend sur Firebase Hosting.
 
 ## 9. Décisions

@@ -6,7 +6,7 @@ _Dernière mise à jour : 16 octobre 2026._
 
 - [x] Monorepo npm workspaces (`apps/web`, `apps/api`, `packages/shared`)
 - [x] ESLint, Prettier, validation des variables d'environnement
-- [x] CI GitLab (lint, typecheck, tests), `main` protégé
+- [x] CI GitHub Actions (lint, typecheck, tests, format), `main` protégé
 - [x] Schémas Zod du workflow, workflow de démonstration (`packages/shared`)
 - [x] `validateGraph` et tri topologique
 - [x] Exécution des nœuds (trigger, HTTP, condition, transform), branches, politique d'échec
@@ -70,7 +70,7 @@ _Dernière mise à jour : 16 octobre 2026._
 - [ ] Dockerfile de l'API
 - [ ] Cloud Run et base managée
 - [ ] Frontend sur Firebase Hosting
-- [ ] Déploiement via GitLab CI (Workload Identity Federation, pas de clé statique)
+- [ ] Déploiement via GitHub Actions (Workload Identity Federation, pas de clé statique)
 - [ ] Budget et alertes de coût
 
 ### 9. Finitions portfolio

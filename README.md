@@ -72,7 +72,7 @@ $env:NODE_OPTIONS="--use-system-ca"; npm install
 | `npm run db:migrate -w api`  | Crée et applique une migration après une modification du schéma Prisma               |
 | `npm run db:generate -w api` | Régénère le client Prisma                                                            |
 
-La CI GitLab lance `lint`, `typecheck`, `test` et `format` sur chaque merge request.
+La CI GitHub Actions (`.github/workflows/ci.yml`) lance `lint`, `typecheck`, `test` et `format` sur chaque pull request et sur `main`.
 
 ## Structure
 
