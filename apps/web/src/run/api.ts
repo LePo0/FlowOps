@@ -1,5 +1,6 @@
 import {
   ApiErrorResponseSchema,
+  RunDetailSchema,
   RunResultSchema,
   type ApiError,
   type RunResult,
@@ -7,20 +8,29 @@ import {
 } from "@flowops/shared";
 
 export type RunOutcome =
-  // L'exécution a eu lieu, qu'elle réussisse ou échoue sur un nœud
-  | { kind: "executed"; result: RunResult }
+  // L'exécution a eu lieu, qu'elle réussisse ou échoue sur un nœud.
+  // runId : présent quand l'exécution a été enregistrée dans l'historique du workflow.
+  | { kind: "executed"; result: RunResult; runId?: string }
   // Le workflow a été refusé avant exécution (par l'éditeur ou par l'API)
   | { kind: "rejected"; errors: ApiError[] }
   // L'API n'a pas pu répondre correctement
   | { kind: "unavailable"; message: string };
 
+export interface PostRunOptions {
+  // Workflow enregistré : l'exécution est ajoutée à son historique
+  workflowId?: string | null;
+  fetchImpl?: typeof fetch;
+}
+
 export async function postRun(
   graph: WorkflowGraph,
-  fetchImpl: typeof fetch = fetch,
+  { workflowId = null, fetchImpl = fetch }: PostRunOptions = {},
 ): Promise<RunOutcome> {
+  const url =
+    workflowId === null ? "/api/run" : `/api/workflows/${encodeURIComponent(workflowId)}/runs`;
   let response: Response;
   try {
-    response = await fetchImpl("/api/run", {
+    response = await fetchImpl(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ graph }),
@@ -32,8 +42,14 @@ export async function postRun(
   const body: unknown = await response.json().catch(() => undefined);
 
   if (response.ok) {
+    // Une exécution historisée renvoie le détail complet : on en garde aussi l'identifiant
+    const detail = workflowId === null ? null : RunDetailSchema.safeParse(body);
+    if (detail?.success) {
+      const { status, nodeResults, durationMs, id } = detail.data;
+      return { kind: "executed", result: { status, nodeResults, durationMs }, runId: id };
+    }
     const result = RunResultSchema.safeParse(body);
-    return result.success
+    return result.success && detail === null
       ? { kind: "executed", result: result.data }
       : { kind: "unavailable", message: "Réponse inattendue de l'API." };
   }

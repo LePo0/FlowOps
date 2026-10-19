@@ -112,3 +112,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.run-bar__note {
+  color: var(--text-muted);
+}

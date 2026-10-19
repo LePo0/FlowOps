@@ -97,11 +97,12 @@ Organisation : une route par module (`src/modules/<nom>/` : routeur + schémas),
 
 En développement, `npm run dev:api` lance Node avec `--use-system-ca` : Node fait alors confiance au magasin de certificats du système, en plus des siens. Sans cette option, derrière un proxy d'entreprise qui inspecte le HTTPS, toutes les requêtes du nœud HTTP échouent avec « Certificat TLS non reconnu ».
 
-| Route            | Rôle                                                                           |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `GET /health`    | Sonde de disponibilité : `{ "status": "ok" }`                                  |
-| `POST /api/run`  | Exécute un graphe envoyé dans le corps (**local uniquement**, voir ci-dessous) |
-| `/api/workflows` | CRUD des workflows de l'utilisateur courant (voir ci-dessous)                  |
+| Route                                         | Rôle                                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------------ |
+| `GET /health`                                 | Sonde de disponibilité : `{ "status": "ok" }`                                  |
+| `POST /api/run`                               | Exécute un graphe envoyé dans le corps (**local uniquement**, voir ci-dessous) |
+| `/api/workflows`                              | CRUD des workflows de l'utilisateur courant (voir ci-dessous)                  |
+| `/api/workflows/:id/runs`, `/api/runs/:runId` | Historique des exécutions d'un workflow enregistré (voir ci-dessous)           |
 
 ### `/api/workflows`
 
@@ -117,6 +118,19 @@ En développement, `npm run dev:api` lance Node avec `--use-system-ca` : Node fa
 - Un identifiant inconnu, mal formé ou appartenant à un autre utilisateur donne le même `404` `NOT_FOUND` : on ne révèle pas l'existence d'un workflow d'autrui.
 - Accès aux données via une interface `WorkflowRepository` : implémentation Prisma en production, en mémoire pour les tests de routes.
 - En attendant l'authentification, toutes les requêtes appartiennent à un **utilisateur de démonstration** (`demo@flowops.local`), créé au démarrage. Le serveur refuse de démarrer sans `DATABASE_URL`.
+
+### Historique des exécutions
+
+| Requête                                    | Réponse                                                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `POST /api/workflows/:id/runs` `{ graph }` | Exécute le graphe envoyé et l'enregistre : `201` avec l'exécution complète (`RunDetail`) et un en-tête `Location` |
+| `GET /api/workflows/:id/runs`              | `200` `{ runs: [{ id, workflowId, status, startedAt, durationMs }] }`, de la plus récente à la plus ancienne      |
+| `GET /api/runs/:runId`                     | `200` avec l'exécution complète : copie du graphe exécuté et résultat de chaque nœud dans l'ordre                 |
+
+- C'est le **graphe affiché dans l'éditeur** qui est exécuté et stocké, même s'il contient des modifications non enregistrées : l'historique montre exactement ce qui a tourné. L'éditeur passe par cette route quand le workflow ouvert est enregistré, et par `POST /api/run` sinon (exécution sans historique).
+- La propriété du workflow est vérifiée **avant** l'exécution : aucune URL n'est appelée pour le workflow d'un autre utilisateur. Un graphe invalide donne `400` avec les codes du moteur et n'est pas enregistré.
+- Enregistrement en une transaction : `WorkflowRun`, ses `NodeRun`, puis suppression des exécutions au-delà des **50 plus récentes** (`MAX_RUNS_PER_WORKFLOW`) : une sortie de nœud HTTP peut atteindre 1 Mo.
+- Comme `/api/run`, la route d'exécution n'est pas montée en production (SSRF) ; la consultation de l'historique reste disponible.
 
 ### `POST /api/run`
 

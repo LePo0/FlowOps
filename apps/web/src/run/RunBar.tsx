@@ -1,4 +1,5 @@
 import { useEditorStore } from "../editor/store.ts";
+import { useDocumentStore } from "../workflows/use-document.ts";
 import type { RunOutcome } from "./api.ts";
 import { useRunStore } from "./run-store.ts";
 import "./run.css";
@@ -9,9 +10,10 @@ export function RunBar() {
   const outcome = useRunStore((state) => state.outcome);
   const run = useRunStore((state) => state.run);
 
+  // Graphe affiché, enregistré ou non ; historisé si le workflow ouvert est enregistré
   const start = () => {
     const { nodes, edges } = useEditorStore.getState();
-    void run(nodes, edges);
+    void run(nodes, edges, useDocumentStore.getState().id);
   };
 
   return (
@@ -34,29 +36,33 @@ function RunSummary({ outcome }: { outcome: RunOutcome }) {
   switch (outcome.kind) {
     case "executed": {
       const { status, durationMs, nodeResults } = outcome.result;
-      if (status === "SUCCESS") {
-        return (
-          <span className="run-bar__badge run-bar__badge--success">Succès · {durationMs} ms</span>
-        );
-      }
       const failed = nodeResults.find((result) => result.status === "FAILED");
       return (
-        <span className="run-bar__badge run-bar__badge--failed">
-          Échec
-          {failed && (
-            <>
-              {" sur "}
-              <button
-                type="button"
-                className="run-bar__link"
-                onClick={() => selectNode(failed.nodeId)}
-              >
-                {nameOf(failed.nodeId)}
-              </button>
-            </>
-          )}{" "}
-          · {durationMs} ms
-        </span>
+        <>
+          {status === "SUCCESS" ? (
+            <span className="run-bar__badge run-bar__badge--success">Succès · {durationMs} ms</span>
+          ) : (
+            <span className="run-bar__badge run-bar__badge--failed">
+              Échec
+              {failed && (
+                <>
+                  {" sur "}
+                  <button
+                    type="button"
+                    className="run-bar__link"
+                    onClick={() => selectNode(failed.nodeId)}
+                  >
+                    {nameOf(failed.nodeId)}
+                  </button>
+                </>
+              )}{" "}
+              · {durationMs} ms
+            </span>
+          )}
+          {outcome.runId !== undefined && (
+            <span className="run-bar__note"> · ajoutée à l'historique</span>
+          )}
+        </>
       );
     }
     case "rejected":

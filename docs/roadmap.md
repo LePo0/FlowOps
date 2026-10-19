@@ -36,7 +36,7 @@ _Dernière mise à jour : 16 octobre 2026._
 - [x] Choix de la base : PostgreSQL 18 en local (instance utilisateur sur le port 5433), service `postgres:18` jetable en CI pour les tests d'intégration
 - [x] Prisma : `User`, `Workflow`, `WorkflowRun`, `NodeRun`, migrations
 - [x] CRUD des workflows (API et éditeur : enregistrer, ouvrir, supprimer)
-- [ ] Historique des exécutions
+- [x] Historique des exécutions : enregistrement de chaque exécution d'un workflow enregistré (50 dernières), consultation par l'API ; affichage dans l'éditeur à l'étape 6
 
 ### 4. Authentification
 

@@ -8,7 +8,7 @@ export interface RunState {
   running: boolean;
   outcome: RunOutcome | null;
   resultsByNode: Partial<Record<string, NodeResult>>;
-  run: (nodes: FlowNode[], edges: FlowEdge[]) => Promise<void>;
+  run: (nodes: FlowNode[], edges: FlowEdge[], workflowId?: string | null) => Promise<void>;
   // Efface le dernier résultat (ex. quand un autre workflow est ouvert)
   reset: () => void;
 }
@@ -54,7 +54,13 @@ function settle(outcome: RunOutcome) {
   };
 }
 
-export function createRunStore(runApi: (graph: WorkflowGraph) => Promise<RunOutcome> = postRun) {
+// workflowId : workflow enregistré dont l'exécution doit entrer dans l'historique (null sinon)
+export function createRunStore(
+  runApi: (graph: WorkflowGraph, workflowId: string | null) => Promise<RunOutcome> = (
+    graph,
+    workflowId,
+  ) => postRun(graph, { workflowId }),
+) {
   return create<RunState>()((set, get) => ({
     running: false,
     outcome: null,
@@ -62,7 +68,7 @@ export function createRunStore(runApi: (graph: WorkflowGraph) => Promise<RunOutc
 
     reset: () => set({ outcome: null, resultsByNode: {} }),
 
-    run: async (nodes, edges) => {
+    run: async (nodes, edges, workflowId = null) => {
       if (get().running) return;
 
       const errors = incompleteNodes(nodes);
@@ -74,7 +80,7 @@ export function createRunStore(runApi: (graph: WorkflowGraph) => Promise<RunOutc
       // On efface le résultat précédent pour ne pas le confondre avec le nouveau
       set({ running: true, outcome: null, resultsByNode: {} });
       try {
-        set(settle(await runApi(toGraph(nodes, edges))));
+        set(settle(await runApi(toGraph(nodes, edges), workflowId)));
       } catch {
         set(settle({ kind: "unavailable", message: "Erreur inattendue pendant l'exécution." }));
       }
