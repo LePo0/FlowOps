@@ -1,0 +1,137 @@
+.document-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.document-bar__name {
+  width: 220px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-strong);
+  font: inherit;
+  font-weight: 600;
+}
+
+.document-bar__name:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.document-bar__status {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.document-bar__status--dirty {
+  color: var(--warning);
+}
+
+.document-bar__error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.open-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(70vh, 600px);
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.open-dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.open-dialog__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.open-dialog__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.open-dialog__note,
+.open-dialog__error {
+  margin: 8px 0;
+}
+
+.open-dialog__error {
+  color: var(--danger);
+}
+
+.open-dialog__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.open-dialog__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.open-dialog__open {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.open-dialog__open:hover {
+  border-color: var(--text-muted);
+}
+
+.open-dialog__open:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.open-dialog__name {
+  color: var(--text-strong);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.open-dialog__current {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.open-dialog__date {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.open-dialog__confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
