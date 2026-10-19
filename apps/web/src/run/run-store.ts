@@ -9,6 +9,8 @@ export interface RunState {
   outcome: RunOutcome | null;
   resultsByNode: Partial<Record<string, NodeResult>>;
   run: (nodes: FlowNode[], edges: FlowEdge[]) => Promise<void>;
+  // Efface le dernier résultat (ex. quand un autre workflow est ouvert)
+  reset: () => void;
 }
 
 const FIELD_LABELS: Partial<Record<string, string>> = {
@@ -57,6 +59,8 @@ export function createRunStore(runApi: (graph: WorkflowGraph) => Promise<RunOutc
     running: false,
     outcome: null,
     resultsByNode: {},
+
+    reset: () => set({ outcome: null, resultsByNode: {} }),
 
     run: async (nodes, edges) => {
       if (get().running) return;

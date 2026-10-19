@@ -97,10 +97,26 @@ Organisation : une route par module (`src/modules/<nom>/` : routeur + schémas),
 
 En développement, `npm run dev:api` lance Node avec `--use-system-ca` : Node fait alors confiance au magasin de certificats du système, en plus des siens. Sans cette option, derrière un proxy d'entreprise qui inspecte le HTTPS, toutes les requêtes du nœud HTTP échouent avec « Certificat TLS non reconnu ».
 
-| Route           | Rôle                                                                           |
-| --------------- | ------------------------------------------------------------------------------ |
-| `GET /health`   | Sonde de disponibilité : `{ "status": "ok" }`                                  |
-| `POST /api/run` | Exécute un graphe envoyé dans le corps (**local uniquement**, voir ci-dessous) |
+| Route            | Rôle                                                                           |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `GET /health`    | Sonde de disponibilité : `{ "status": "ok" }`                                  |
+| `POST /api/run`  | Exécute un graphe envoyé dans le corps (**local uniquement**, voir ci-dessous) |
+| `/api/workflows` | CRUD des workflows de l'utilisateur courant (voir ci-dessous)                  |
+
+### `/api/workflows`
+
+| Requête                                    | Réponse                                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `GET /api/workflows`                       | `200` `{ workflows: [{ id, name, createdAt, updatedAt }] }`, du plus récent au plus ancien, sans les graphes |
+| `POST /api/workflows` `{ name, graph }`    | `201` avec le workflow complet et un en-tête `Location`                                                      |
+| `GET /api/workflows/:id`                   | `200` `{ id, name, graph, createdAt, updatedAt }`                                                            |
+| `PUT /api/workflows/:id` `{ name, graph }` | `200` avec le workflow mis à jour                                                                            |
+| `DELETE /api/workflows/:id`                | `204`                                                                                                        |
+
+- Corps validés avec le contrat partagé (`SaveWorkflowRequestSchema`) : `400` `INVALID_BODY` sinon. Le graphe doit être complet (mêmes règles qu'à l'exécution) : un brouillon avec un champ vide ne s'enregistre pas.
+- Un identifiant inconnu, mal formé ou appartenant à un autre utilisateur donne le même `404` `NOT_FOUND` : on ne révèle pas l'existence d'un workflow d'autrui.
+- Accès aux données via une interface `WorkflowRepository` : implémentation Prisma en production, en mémoire pour les tests de routes.
+- En attendant l'authentification, toutes les requêtes appartiennent à un **utilisateur de démonstration** (`demo@flowops.local`), créé au démarrage. Le serveur refuse de démarrer sans `DATABASE_URL`.
 
 ### `POST /api/run`
 
@@ -131,14 +147,15 @@ flowchart LR
   Run -->|sortie, erreur| Panel
 ```
 
-| Module                       | Rôle                                                                                                                          |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `editor/graph.ts`            | `fromGraph()` / `toGraph()` : la `branch` d'une arête devient la poignée de sortie (`sourceHandle`) de la condition           |
-| `editor/store.ts`            | Nœuds et arêtes, callbacks de React Flow, ajout, édition, suppression, sélection                                              |
-| `editor/connection-rules.ts` | Refuse pendant le tracé ce que le moteur rejetterait : boucle, arête vers le déclencheur, doublon, cycle, branche incohérente |
-| `editor/nodes/`              | Un composant par type de nœud ; la condition a deux sorties `true` / `false`                                                  |
-| `editor/panel/`              | Formulaire du nœud sélectionné, validé avec le schéma Zod partagé (messages en français)                                      |
-| `run/`                       | Client de `POST /api/run`, store d'exécution, statuts affichés sur les nœuds et dans le panneau                               |
+| Module                       | Rôle                                                                                                                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `editor/graph.ts`            | `fromGraph()` / `toGraph()` : la `branch` d'une arête devient la poignée de sortie (`sourceHandle`) de la condition                                                                                         |
+| `editor/store.ts`            | Nœuds et arêtes, callbacks de React Flow, ajout, édition, suppression, sélection                                                                                                                            |
+| `editor/connection-rules.ts` | Refuse pendant le tracé ce que le moteur rejetterait : boucle, arête vers le déclencheur, doublon, cycle, branche incohérente                                                                               |
+| `editor/nodes/`              | Un composant par type de nœud ; la condition a deux sorties `true` / `false`                                                                                                                                |
+| `editor/panel/`              | Formulaire du nœud sélectionné, validé avec le schéma Zod partagé (messages en français)                                                                                                                    |
+| `run/`                       | Client de `POST /api/run`, store d'exécution, statuts affichés sur les nœuds et dans le panneau                                                                                                             |
+| `workflows/`                 | Document courant : nom, enregistrement (bouton et Ctrl+S), « Ouvrir… » et « Nouveau », état enregistré ou modifié, dernier workflow rouvert au rechargement, confirmation avant de perdre des modifications |
 
 Principes :
 
@@ -182,7 +199,7 @@ Le poste de développement n'a pas les droits administrateur sur l'instance Post
 
 - données dans `%LOCALAPPDATA%\flowops-postgres\data`, **hors de OneDrive** (la synchronisation corromprait la base) ;
 - port **5433**, pour ne pas gêner l'instance du portail sur le 5432 ;
-- `npm run db:start`, `db:stop`, `db:status` (`scripts/db.mjs`, chemins modifiables avec `PG_BIN` et `PG_DATA`) ;
+- `npm run db:start`, `db:stop`, `db:status` (`scripts/db.mjs`, chemins modifiables avec `PG_BIN` et `PG_DATA`). Ce n'est pas un service Windows : **à relancer après chaque redémarrage du PC**, sinon l'API refuse de démarrer avec « Base de données injoignable » ;
 - rôle `flowops` (droit `CREATEDB`, nécessaire à la base temporaire de `prisma migrate dev`), bases `flowops` et `flowops_test` ; URL dans `apps/api/.env`.
 
 Création de l'instance, une seule fois (PowerShell) :
@@ -203,6 +220,7 @@ Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et appliq
 ## 8. Qualité et livraison
 
 - Tests : Vitest (+ Supertest pour l'API). Le moteur est testé sans réseau.
+- Tests d'intégration de l'API sur une vraie base PostgreSQL (`TEST_DATABASE_URL`) : Vitest y applique les migrations avant de lancer les tests, et ne leur transmet jamais `DATABASE_URL`. Sans base de test, ils sont ignorés en local mais font échouer la CI, où un service `postgres:18` jetable est fourni.
 - CI GitLab : `lint`, `typecheck`, `test` en parallèle, sur merge requests et sur `main`.
 - Workflow Git : `main` protégé, branches courtes, merge requests avec squash.
 - Déploiement cible (à venir) : Docker, Cloud Run, base managée, frontend sur Firebase Hosting.
