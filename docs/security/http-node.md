@@ -94,4 +94,35 @@ Légende des modes : **D** = défaut (SaaS), **E** = entreprise, avec `HTTP_ALLO
 
 ## Résultats de la vérification finale
 
-_À compléter à la fin de l'étape 5._
+_19 octobre 2026, branche `feat/http-node-security`._
+
+**Tests automatisés** : tous les scénarios sont couverts et passent (`npm test`, en CI à chaque pull request).
+
+| Fichier                                             | Scénarios                                        |
+| --------------------------------------------------- | ------------------------------------------------ |
+| `apps/api/src/engine/network/policy.test.ts`        | C1 à C7, K1, K2                                  |
+| `apps/api/src/engine/network/guarded-fetch.test.ts` | C1, C6 à C11, R1 à R5, I1                        |
+| `apps/api/src/engine/network/transport.test.ts`     | C10 (connexion épinglée), R1, L4 (serveur local) |
+| `apps/api/src/engine/http-security.test.ts`         | C12, L1 à L6, I1 à I3                            |
+
+Avant l'implémentation, ces tests échouaient sur le code de l'époque (77 échecs sur 87), sauf ceux qui vérifient l'absence de régression (C1, R1, I3, L5).
+
+**Application lancée en local**, mode par défaut, depuis l'éditeur avec un compte connecté :
+
+| #   | Cible                                                         | Résultat                                |
+| --- | ------------------------------------------------------------- | --------------------------------------- |
+| C1  | `https://pokeapi.co/api/v2/pokemon/1`                         | Réussi (derrière le proxy d'entreprise) |
+| C2  | `http://localhost:3000/health`                                | « Adresse non autorisée »               |
+| C3  | `http://169.254.169.254/`                                     | « Adresse non autorisée »               |
+| C4  | `http://192.168.1.1/`                                         | « Adresse non autorisée »               |
+| C7  | `http://127.1:3000/health`                                    | « Adresse non autorisée »               |
+| R2  | URL publique qui redirige vers `http://127.0.0.1:3000/health` | « Adresse non autorisée »               |
+| C12 | `{{…body.species.url}}` vers une URL publique                 | Réussi                                  |
+| K1  | Démarrage avec `HTTP_ALLOWED_TARGETS=10.20.0.0/33`            | Refus de démarrer, entrée citée         |
+
+Le mode entreprise n'a pas été rejoué à la main faute de service interne de test : il est couvert par les tests automatisés (C4 à C6, K2).
+
+### Limites connues
+
+- **Existence d'un nom DNS** : un nom qui ne se résout pas donne « Nom de domaine introuvable », pas « Adresse non autorisée ». Sur un réseau d'entreprise, on peut donc savoir si un nom interne existe, sans apprendre son adresse ni pouvoir le joindre. Risque jugé faible.
+- **Secrets** : une clé saisie dans un nœud reste stockée dans le graphe (coffre de secrets hors MVP, voir la roadmap).

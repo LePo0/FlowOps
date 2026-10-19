@@ -77,8 +77,9 @@ Un handler par type de nœud, contrat commun : il reçoit le nœud et un context
 - Le `fetch` est **injecté** : les tests n'appellent jamais le réseau.
 - Un statut HTTP 4xx/5xx n'est **pas** une erreur du moteur. Le nœud réussit, et c'est la condition qui décide.
 - La transformation (`transform.ts`) applique à sa source, dans l'ordre : un **filtre** optionnel sur les éléments d'une liste (mêmes opérateurs et même comparaison stricte que la condition, `compare.ts`), puis **soit** des champs à conserver (chemins imbriqués acceptés, structure gardée : `ability.name` → `{ ability: { name } }`), **soit** un champ à extraire (une valeur par élément : `["overgrow", "chlorophyll"]`). Un champ absent de tous les éléments est une erreur : c'est presque toujours une faute de frappe. Pas de boucle : appeler une URL par élément reste hors périmètre.
-- Échecs du nœud HTTP : erreur réseau, timeout, réponse trop grosse, JSON invalide.
-- `fetch` ne lève qu'un `fetch failed` générique : `http-errors.ts` lit la `cause` et produit un message clair (certificat non reconnu, domaine introuvable, connexion refusée, délai dépassé, URL invalide…). Ce niveau de détail sert d'oracle pour sonder un réseau interne : à revoir avec la protection SSRF.
+- Échecs du nœud HTTP : cible non autorisée, erreur réseau, timeout, échéance globale, réponse trop grosse, JSON invalide.
+- `fetch` ne lève qu'un `fetch failed` générique : `http-errors.ts` lit la `cause` et produit un message clair (certificat non reconnu, domaine introuvable, connexion refusée, délai dépassé, URL invalide…). Ces détails ne concernent que des cibles autorisées : une cible refusée donne toujours « Adresse non autorisée », sans cause.
+- En production, le `fetch` injecté est le **fetch gardé** (`engine/network/`) : politique réseau vérifiée sur chaque adresse résolue, connexion épinglée sur l'adresse vérifiée, redirections suivies et revérifiées par FlowOps. Le corps est lu en flux et coupé au-delà de 1 Mo ; une échéance globale (60 s) borne toute l'exécution. Détails et scénarios : [`docs/security/http-node.md`](security/http-node.md).
 - Chaque résultat de nœud peut porter, en plus de `output` et `error` :
   - `input` : ce que le nœud a réellement utilisé. Pour le nœud HTTP, la requête envoyée après résolution des `{{références}}`, avec les en-têtes sensibles (`Authorization`, `Cookie`, `*token*`, `*api-key*`…) masqués ; pour la condition, la valeur testée.
   - `errorDetail` : la chaîne des causes techniques (nom, message, code), sans stack trace.
@@ -221,14 +222,13 @@ Principes :
 | Taille du corps des requêtes API (1 Mo)             | En place                                         |
 | Route `POST /api/run` désactivée en production      | En place, en attendant la protection SSRF        |
 | Timeout par requête HTTP (10 s par défaut)          | En place                                         |
-| Taille maximale de réponse (vérifiée après lecture) | En place                                         |
+| Taille maximale de réponse (1 Mo, lue en flux)      | En place                                         |
 | Références sûres (propriétés propres uniquement)    | En place                                         |
 | Authentification sur toutes les routes `/api`       | En place (Firebase, email vérifié obligatoire)   |
 | CORS limité à l'origine de l'éditeur                | En place                                         |
-| Politique réseau des cibles (SSRF)                  | **À venir, prérequis avant toute mise en ligne** |
-| Revalidation des redirections                       | À venir                                          |
-| Lecture de la réponse en flux avec coupure          | À venir                                          |
-| Durée maximale globale d'une exécution              | À venir                                          |
+| Politique réseau des cibles (SSRF)                  | En place (défaut : adresses publiques seules)    |
+| Revalidation des redirections                       | En place (5 au maximum)                          |
+| Durée maximale globale d'une exécution              | En place (60 s)                                  |
 | Secrets (tokens) hors du JSON du graphe et des logs | Hors MVP (piste d'évolution : coffre de secrets) |
 
 FlowOps doit pouvoir tourner en SaaS public comme sur le réseau d'une entreprise, pour appeler ses API internes. Le nœud HTTP ne bloque donc pas « toutes les adresses privées » : il applique une **politique réseau fixée par l'administrateur du déploiement**. Par défaut, seules les adresses publiques sont autorisées. Des réseaux et domaines internes s'ouvrent par variable d'environnement, et certaines cibles restent toujours interdites (boucle locale, serveur de métadonnées du cloud). Règles, modes et scénarios vérifiés : [`docs/security/http-node.md`](security/http-node.md).

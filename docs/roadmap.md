@@ -61,7 +61,7 @@ FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une ent
 - [x] Lecture de la réponse en flux, coupée au-delà de 1 Mo décompressé
 - [x] Durée maximale d'une exécution (échéance globale), 60 s par défaut
 - [x] Message unique pour une cible refusée : pas d'indice sur l'existence d'une machine ou d'un port
-- [ ] Scénarios traduits en tests automatisés, puis vérification finale sur l'application lancée en local
+- [x] Scénarios traduits en tests automatisés, puis vérification finale sur l'application lancée en local
 - [ ] Exécution montée en production une fois les points précédents faits
 - **Prérequis avant toute mise en ligne**
 
