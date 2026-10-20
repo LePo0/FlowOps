@@ -73,6 +73,15 @@ describe("politique réseau, mode entreprise", () => {
     expect(company.decide(HOST, "192.168.1.1")).toBe("deny");
   });
 
+  it("[C4] autorise une adresse seule, sans ouvrir ses voisines", () => {
+    const single = createNetworkPolicy({ allowed: "10.20.1.5, fd12::7" });
+
+    expect(single.decide(HOST, "10.20.1.5")).toBe("allow");
+    expect(single.decide(HOST, "10.20.1.6")).toBe("deny");
+    expect(single.decide(HOST, "fd12::7")).toBe("allow");
+    expect(single.decide(HOST, "fd12::8")).toBe("deny");
+  });
+
   it("[C5] fait primer les exclusions sur les autorisations", () => {
     expect(company.decide(HOST, "10.20.99.5")).toBe("deny");
   });

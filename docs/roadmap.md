@@ -73,9 +73,9 @@ FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une ent
 
 ### 7. Tests complémentaires
 
-- [ ] Cas limites du moteur
-- [ ] Tests d'API
-- [ ] Scénarios : nominal, erreur, modification
+- [x] Cas limites du moteur : opérateurs de comparaison, fusion de branches, référence vers un nœud ignoré ou inexistant, réponse JSON mal formée, échéance atteinte entre deux nœuds, échecs DNS et de connexion
+- [x] Tests d'API : exécution en échec enregistrée, corps invalides, workflow supprimé pendant l'exécution, réponse déjà commencée ; configuration de démarrage (`config/server-config.ts`) testée : variables obligatoires, listes réseau invalides, message d'une base injoignable
+- [ ] Scénarios de bout en bout (nominal, erreur, modification) : Playwright et émulateur Firebase Auth. Les jetons de l'émulateur ne sont pas signés : l'API ne les accepte que si `FIREBASE_AUTH_EMULATOR_HOST` est défini, et refuse de démarrer avec cette variable en production
 
 ### 8. Déploiement
 
