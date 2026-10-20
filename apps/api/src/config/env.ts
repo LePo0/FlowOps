@@ -17,4 +17,6 @@ const EnvSchema = z.object({
   HTTP_DENIED_TARGETS: z.string().default(""),
 });
 
+export type Env = z.infer<typeof EnvSchema>;
+
 export const env = EnvSchema.parse(process.env);

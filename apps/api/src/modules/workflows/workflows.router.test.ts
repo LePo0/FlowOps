@@ -87,6 +87,19 @@ describe("/api/workflows", () => {
     expect(res.body.errors[0].code).toBe("INVALID_BODY");
   });
 
+  it("refuse une mise à jour invalide sans toucher au workflow enregistré", async () => {
+    const { body } = await create("Original");
+
+    const res = await as(app, ALICE)
+      .put(`/api/workflows/${body.id}`)
+      .send({ name: "Renommé", graph: { nodes: [], edges: [] } });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors[0].code).toBe("INVALID_BODY");
+    const read = await as(app, ALICE).get(`/api/workflows/${body.id}`);
+    expect(read.body).toEqual(body);
+  });
+
   it("répond 404 pour un identifiant inconnu ou mal formé", async () => {
     const unknown = "33333333-3333-4333-8333-333333333333";
 

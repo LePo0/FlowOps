@@ -103,6 +103,58 @@ describe("historique des exécutions", () => {
     expect((await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`)).body.runs).toEqual([]);
   });
 
+  it("enregistre une exécution en échec : un nœud cassé n'est pas une erreur HTTP", async () => {
+    fetchMock.mockRejectedValue(
+      new TypeError("fetch failed", {
+        cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
+      }),
+    );
+
+    const res = await run();
+
+    expect(res.status).toBe(201);
+    const detail = RunDetailSchema.parse(res.body);
+    expect(detail.status).toBe("FAILED");
+    expect(detail.nodeResults.find((r) => r.nodeId === "http1")).toMatchObject({
+      status: "FAILED",
+      error: "Connexion refusée par le serveur (ECONNREFUSED)",
+    });
+    const stored = await as(app, ALICE).get(`/api/runs/${detail.id}`);
+    expect(stored.body).toEqual(res.body);
+  });
+
+  it("refuse un corps sans graphe, sans rien exécuter ni enregistrer", async () => {
+    for (const body of [{}, { graph: "pas un graphe" }, { graph: null }]) {
+      const res = await as(app, ALICE).post(`/api/workflows/${workflowId}/runs`).send(body);
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors[0].code).toBe("INVALID_BODY");
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`)).body.runs).toEqual([]);
+  });
+
+  it("vérifie la propriété avant le corps : un corps invalide sur le workflow d'autrui donne 404", async () => {
+    const res = await as(app, BOB).post(`/api/workflows/${workflowId}/runs`).send({});
+
+    expect(res.status).toBe(404);
+  });
+
+  it("répond 404 si le workflow est supprimé pendant l'exécution, sans rien enregistrer", async () => {
+    fetchMock.mockImplementation(async () => {
+      await workflows.remove(ALICE, workflowId);
+      return new Response(JSON.stringify({ products: [] }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    const res = await run();
+
+    expect(res.status).toBe(404);
+    expect(res.body.errors[0].code).toBe("NOT_FOUND");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("n'exécute rien pour un workflow inconnu ou appartenant à un autre utilisateur", async () => {
     expect((await run(UNKNOWN)).status).toBe(404);
     expect((await run("pas-un-uuid")).status).toBe(404);

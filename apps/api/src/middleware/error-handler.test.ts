@@ -20,4 +20,29 @@ describe("errorHandler", () => {
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
   });
+
+  it("laisse Express couper la connexion si la réponse a déjà commencé", async () => {
+    const app = express();
+    app.get("/flux", (_req, res, next) => {
+      res.status(200).write("début");
+      next(new Error("échec au milieu du flux"));
+    });
+    const reached = vi.fn();
+    app.use(errorHandler);
+    // Gestionnaire d'Express suivant : il reçoit l'erreur au lieu d'une seconde réponse JSON.
+    // Express ne le reconnaît comme gestionnaire d'erreurs qu'avec ses quatre paramètres.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    app.use(((err, _req, res, _next) => {
+      reached(err);
+      res.end();
+    }) as express.ErrorRequestHandler);
+
+    const res = await request(app).get("/flux");
+
+    expect(res.status).toBe(200);
+    expect(res.text).toBe("début");
+    expect(reached).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "échec au milieu du flux" }),
+    );
+  });
 });
