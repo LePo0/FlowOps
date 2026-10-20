@@ -4,8 +4,13 @@ import type { Env } from "./env.js";
 export interface ServerConfig {
   databaseUrl: string;
   firebaseProjectId: string;
+  // Défini : jetons non signés de l'émulateur Firebase Auth acceptés (tests de bout en bout)
+  authEmulatorHost: string | undefined;
   networkPolicy: NetworkPolicy;
 }
+
+// Projets réservés à l'émulateur par convention Firebase : aucun vrai projet ne porte ce préfixe
+const DEMO_PROJECT_PREFIX = "demo-";
 
 export type ServerConfigResult = { ok: true; config: ServerConfig } | { ok: false; error: string };
 
@@ -28,12 +33,33 @@ export function loadServerConfig(env: Env): ServerConfigResult {
     };
   }
 
+  // Jetons non signés acceptés : impossible en production ou avec un vrai projet Firebase,
+  // pour qu'une variable oubliée ne puisse pas ouvrir l'API à n'importe quel jeton fabriqué
+  const authEmulatorHost = env.FIREBASE_AUTH_EMULATOR_HOST;
+  if (authEmulatorHost !== undefined) {
+    if (env.NODE_ENV === "production") {
+      return {
+        ok: false,
+        error: "FIREBASE_AUTH_EMULATOR_HOST est réservée aux tests : interdite en production.",
+      };
+    }
+    if (!firebaseProjectId.startsWith(DEMO_PROJECT_PREFIX)) {
+      return {
+        ok: false,
+        error: `FIREBASE_AUTH_EMULATOR_HOST exige un projet de démonstration (FIREBASE_PROJECT_ID=${DEMO_PROJECT_PREFIX}…), pas « ${firebaseProjectId} ».`,
+      };
+    }
+  }
+
   try {
     const networkPolicy = createNetworkPolicy({
       allowed: env.HTTP_ALLOWED_TARGETS,
       denied: env.HTTP_DENIED_TARGETS,
     });
-    return { ok: true, config: { databaseUrl, firebaseProjectId, networkPolicy } };
+    return {
+      ok: true,
+      config: { databaseUrl, firebaseProjectId, authEmulatorHost, networkPolicy },
+    };
   } catch (error) {
     return {
       ok: false,

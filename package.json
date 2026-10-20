@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "e2e"
   ],
   "engines": {
     "node": ">=24"

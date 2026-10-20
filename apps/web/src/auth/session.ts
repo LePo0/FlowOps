@@ -21,10 +21,14 @@ const firebaseConfig = FirebaseConfigSchema.safeParse({
 
 export const authConfigured = firebaseConfig.success;
 
+// Tests de bout en bout : émulateur Firebase Auth (ex. 127.0.0.1:9099) au lieu de Google
+const emulatorHost: string | undefined =
+  import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST || undefined;
+
 let client: AuthClient | null = null;
 function authClient(): AuthClient {
   if (!firebaseConfig.success) throw new Error("Configuration Firebase absente");
-  client ??= createFirebaseAuthClient(firebaseConfig.data);
+  client ??= createFirebaseAuthClient(firebaseConfig.data, emulatorHost);
   return client;
 }
 

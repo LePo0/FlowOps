@@ -33,6 +33,7 @@ Si l'API affiche « Base de données injoignable », c'est que la base n'a pas �
 
 - **Node.js 24** ou plus récent.
 - **PostgreSQL 18** installé (seuls ses programmes sont utilisés : FlowOps a sa propre instance, sans droits administrateur).
+- **Java 21** ou plus récent, uniquement pour les [tests de bout en bout](#tests-de-bout-en-bout) (émulateur Firebase).
 
 ## Première installation
 
@@ -88,7 +89,28 @@ La boucle locale et le serveur de métadonnées restent toujours interdits. Règ
 
 ### Vérification de l'adresse email
 
-Les comptes email/mot de passe doivent vérifier leur adresse avant d'accéder à l'éditeur (l'API répond `403` sinon). Les tests n'utilisent pas Firebase : aucune configuration n'est nécessaire pour `npm test` ni en CI.
+Les comptes email/mot de passe doivent vérifier leur adresse avant d'accéder à l'éditeur (l'API répond `403` sinon). Les tests n'utilisent pas le vrai Firebase : aucune configuration n'est nécessaire pour `npm test`, ni pour les tests de bout en bout, ni en CI.
+
+### Tests de bout en bout
+
+Playwright pilote l'éditeur dans Chromium, contre la vraie API, une base PostgreSQL et l'**émulateur Firebase Auth** (comptes en mémoire, liens de vérification lus sans boîte mail). Scénarios : inscription et vérification de l'adresse, déconnexion et isolation des comptes, exécution nominale, cible refusée, réponse 404, modification d'un workflow puis relance depuis l'historique.
+
+Une fois :
+
+```powershell
+npx playwright install chromium   # dans e2e/
+```
+
+Puis, avec la base locale démarrée :
+
+```powershell
+npm run e2e -w e2e
+```
+
+La commande lance elle-même l'émulateur, un service cible pour le nœud HTTP, l'API (port 3100) et l'éditeur (port 5174), sans gêner `dev:api` et `dev:web`. La base `flowops_e2e` est créée à côté de `flowops_test` (même serveur, même rôle, lu dans `TEST_DATABASE_URL`), migrée et vidée à chaque lancement.
+
+- **Jetons de l'émulateur** : ils ne sont pas signés. L'API ne les accepte que si `FIREBASE_AUTH_EMULATOR_HOST` est défini, et refuse alors de démarrer en production ou avec un vrai projet : seul un projet `demo-*`, réservé à l'émulateur par Firebase, est permis.
+- **Service cible** : la boucle locale est toujours refusée par le nœud HTTP. Le service écoute donc sur une adresse privée de la machine, ouverte pour l'API de test seule (`HTTP_ALLOWED_TARGETS`). Si la détection automatique choisit une mauvaise interface, la fixer avec `E2E_TARGET_HOST`. Au premier lancement, Windows peut demander d'autoriser Node.js sur le réseau privé.
 
 ### Derrière un proxy d'entreprise
 
@@ -103,13 +125,14 @@ $env:NODE_OPTIONS="--use-system-ca"; npm install
 | Commande                     | Rôle                                                                                 |
 | ---------------------------- | ------------------------------------------------------------------------------------ |
 | `npm test`                   | Tests de tous les paquets (les tests d'intégration utilisent la base `flowops_test`) |
+| `npm run e2e -w e2e`         | Tests de bout en bout (Playwright, émulateur Firebase) : voir ci-dessus              |
 | `npm run typecheck`          | Vérification des types                                                               |
 | `npm run lint`               | ESLint                                                                               |
 | `npm run format:check`       | Vérifie le formatage Prettier (`npm run format` pour corriger)                       |
 | `npm run db:migrate -w api`  | Crée et applique une migration après une modification du schéma Prisma               |
 | `npm run db:generate -w api` | Régénère le client Prisma                                                            |
 
-La CI GitHub Actions (`.github/workflows/ci.yml`) lance `lint`, `typecheck`, `test` et `format` sur chaque pull request et sur `main`.
+La CI GitHub Actions (`.github/workflows/ci.yml`) lance `lint`, `typecheck`, `test`, `format` et `e2e` sur chaque pull request et sur `main`.
 
 ## Structure
 
@@ -119,6 +142,7 @@ apps/
   web/        Éditeur React + React Flow + Zustand
 packages/
   shared/     Contrat partagé : schémas Zod du workflow et des réponses de l'API
+e2e/          Tests de bout en bout : Playwright, émulateur Firebase, service cible
 scripts/      Démarrage de la base locale (db.mjs)
 docs/         Architecture et roadmap
 ```
