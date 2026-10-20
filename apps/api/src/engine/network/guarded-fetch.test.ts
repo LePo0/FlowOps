@@ -252,3 +252,43 @@ describe("fetch gardé : redirections", () => {
     expect((await fetch("https://api.exemple.test/cache")).status).toBe(304);
   });
 });
+
+describe("fetch gardé : échecs avant toute connexion", () => {
+  // Même forme que fetch : http-errors.ts traduit la cause (ENOTFOUND → « Nom de domaine introuvable »)
+  async function fetchError(promise: Promise<Response>) {
+    const error = await promise.catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(TypeError);
+    expect(error).not.toBeInstanceOf(TargetDeniedError);
+    expect((error as Error).message).toBe("fetch failed");
+    return (error as Error).cause as Error & { code?: string };
+  }
+
+  it("transmet l'échec DNS comme une erreur réseau, pas comme un refus (limite connue)", async () => {
+    const { fetch, transport } = guarded();
+
+    const cause = await fetchError(fetch("https://inconnu.exemple.test/"));
+
+    expect(cause.code).toBe("ENOTFOUND");
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("traite une résolution sans adresse comme un nom introuvable", async () => {
+    const { fetch, transport } = guarded({ dns: fakeDns({ "vide.exemple.test": [] }) });
+
+    const cause = await fetchError(fetch("https://vide.exemple.test/"));
+
+    expect(cause.code).toBe("ENOTFOUND");
+    expect(cause.message).toBe("ENOTFOUND vide.exemple.test");
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("rejette une URL mal formée sans résolution ni connexion", async () => {
+    const { fetch, dns, transport } = guarded();
+
+    const cause = await fetchError(fetch("pas une url"));
+
+    expect(cause).toBeInstanceOf(TypeError);
+    expect(dns).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+});

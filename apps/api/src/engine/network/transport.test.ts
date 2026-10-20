@@ -76,4 +76,21 @@ describe("transport épinglé", () => {
     // Octets décompressés (des zéros), pas le flux gzip
     expect(first.value?.every((byte) => byte === 0)).toBe(true);
   });
+
+  it("rejette avec la cause réseau quand la connexion est refusée", async () => {
+    // Port libéré juste avant : plus rien n'y écoute
+    const closed = createServer();
+    await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+    const closedPort = (closed.address() as AddressInfo).port;
+    await new Promise((resolve) => closed.close(resolve));
+
+    const error = await pinnedTransport(
+      new URL(`http://flowops-epingle.invalid:${closedPort}/`),
+      {},
+      "127.0.0.1",
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(TypeError);
+    expect(((error as Error).cause as { code?: string }).code).toBe("ECONNREFUSED");
+  });
 });
