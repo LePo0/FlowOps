@@ -1,5 +1,5 @@
 import { Router, type Request } from "express";
-import { currentUserId } from "../../auth/authenticate.js";
+import { currentPlan, currentUserId } from "../../auth/authenticate.js";
 import {
   SaveWorkflowRequestSchema,
   type WorkflowDetail,
@@ -7,7 +7,7 @@ import {
   type WorkflowSummary,
 } from "@flowops/shared";
 import { z } from "zod";
-import { invalidBody, notFound } from "../../http/errors.js";
+import { invalidBody, notFound, quotaExceeded } from "../../http/errors.js";
 import type {
   StoredWorkflow,
   StoredWorkflowSummary,
@@ -54,7 +54,20 @@ export function createWorkflowsRouter({ repository }: WorkflowsRouterDeps): Rout
       res.status(400).json(invalidBody(parsed.error));
       return;
     }
-    const created = await repository.create(currentUserId(res), parsed.data);
+    const userId = currentUserId(res);
+    const { maxWorkflows } = currentPlan(res);
+    // Deux créations simultanées peuvent dépasser d'une unité : quota de stockage, pas de sécurité
+    if (maxWorkflows !== null && (await repository.count(userId)) >= maxWorkflows) {
+      res
+        .status(403)
+        .json(
+          quotaExceeded(
+            `Une session de démo garde au plus ${maxWorkflows} workflows : supprimez-en un ou créez un compte`,
+          ),
+        );
+      return;
+    }
+    const created = await repository.create(userId, parsed.data);
     res.status(201).location(`${req.baseUrl}/${created.id}`).json(toDetail(created));
   });
 

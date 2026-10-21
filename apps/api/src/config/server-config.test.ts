@@ -11,6 +11,8 @@ const complete: Env = {
   FIREBASE_AUTH_EMULATOR_HOST: undefined,
   HTTP_ALLOWED_TARGETS: "",
   HTTP_DENIED_TARGETS: "",
+  DEMO_SESSIONS_ENABLED: true,
+  TRUST_PROXY_HOPS: 0,
 };
 
 function refusal(env: Env): string {

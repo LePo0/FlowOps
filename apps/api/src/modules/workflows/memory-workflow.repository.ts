@@ -31,6 +31,8 @@ export function createMemoryWorkflowRepository(): WorkflowRepository {
           updatedAt,
         })),
 
+    count: async (userId) => [...rows.values()].filter((row) => row.userId === userId).length,
+
     find: async (userId, id) => {
       const row = owned(userId, id);
       return row ? strip(row) : null;

@@ -10,3 +10,6 @@ export const DEFAULT_MAX_DURATION_MS = 60_000;
 
 export const deadlineMessage = (maxDurationMs: number) =>
   `Durée maximale de l'exécution dépassée (${maxDurationMs} ms)`;
+
+export const tooLargeMessage = (maxResponseBytes: number) =>
+  `Réponse trop volumineuse (plus de ${Math.round(maxResponseBytes / 1000)} Ko)`;

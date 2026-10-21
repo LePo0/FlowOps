@@ -57,7 +57,7 @@ describe.skipIf(!url)("dépôt Prisma des exécutions (base de test)", () => {
   });
 
   it("enregistre l'exécution et la relit à l'identique, nœuds dans l'ordre", async () => {
-    const recorded = await runs.record(alice, workflowId, newRun());
+    const recorded = await runs.record(alice, workflowId, newRun(), MAX_RUNS_PER_WORKFLOW);
 
     const found = await runs.find(alice, recorded?.id ?? "");
     expect(found).toMatchObject({ workflowId, status: "FAILED", graph: sampleWorkflow });
@@ -68,7 +68,12 @@ describe.skipIf(!url)("dépôt Prisma des exécutions (base de test)", () => {
     const base = Date.UTC(2026, 9, 19, 8, 0, 0);
     const total = MAX_RUNS_PER_WORKFLOW + 2;
     for (let i = 0; i < total; i++) {
-      await runs.record(alice, workflowId, newRun(new Date(base + i * 1000)));
+      await runs.record(
+        alice,
+        workflowId,
+        newRun(new Date(base + i * 1000)),
+        MAX_RUNS_PER_WORKFLOW,
+      );
     }
 
     const kept = (await runs.list(alice, workflowId)) ?? [];
@@ -80,16 +85,16 @@ describe.skipIf(!url)("dépôt Prisma des exécutions (base de test)", () => {
   });
 
   it("refuse d'enregistrer ou de lire l'historique du workflow d'un autre utilisateur", async () => {
-    const recorded = await runs.record(alice, workflowId, newRun());
+    const recorded = await runs.record(alice, workflowId, newRun(), MAX_RUNS_PER_WORKFLOW);
 
-    expect(await runs.record(bob, workflowId, newRun())).toBeNull();
+    expect(await runs.record(bob, workflowId, newRun(), MAX_RUNS_PER_WORKFLOW)).toBeNull();
     expect(await runs.list(bob, workflowId)).toBeNull();
     expect(await runs.find(bob, recorded?.id ?? "")).toBeNull();
     expect(await prisma.workflowRun.count()).toBe(1);
   });
 
   it("supprime l'historique avec le workflow (cascade)", async () => {
-    await runs.record(alice, workflowId, newRun());
+    await runs.record(alice, workflowId, newRun(), MAX_RUNS_PER_WORKFLOW);
 
     await prisma.workflow.delete({ where: { id: workflowId } });
 

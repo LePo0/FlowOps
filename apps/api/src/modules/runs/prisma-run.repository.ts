@@ -1,4 +1,4 @@
-import { MAX_RUNS_PER_WORKFLOW, WorkflowGraphSchema, type NodeResult } from "@flowops/shared";
+import { WorkflowGraphSchema, type NodeResult } from "@flowops/shared";
 import { Prisma, type PrismaClient } from "../../generated/prisma/client.js";
 import type { RunRepository, StoredRun } from "./run.repository.js";
 
@@ -49,7 +49,7 @@ export function createPrismaRunRepository(prisma: PrismaClient): RunRepository {
 
   return {
     // Une seule transaction : vérification du propriétaire, écriture, puis purge des plus anciennes
-    record: (userId, workflowId, run) =>
+    record: (userId, workflowId, run, keep) =>
       prisma.$transaction(async (tx) => {
         if (!(await ownsWorkflow(tx, userId, workflowId))) return null;
 
@@ -79,7 +79,7 @@ export function createPrismaRunRepository(prisma: PrismaClient): RunRepository {
         const beyondLimit = await tx.workflowRun.findMany({
           where: { workflowId },
           orderBy: [{ startedAt: "desc" }, { id: "desc" }],
-          skip: MAX_RUNS_PER_WORKFLOW,
+          skip: keep,
           select: { id: true },
         });
         if (beyondLimit.length > 0) {

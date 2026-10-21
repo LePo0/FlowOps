@@ -33,6 +33,8 @@ export function createPrismaWorkflowRepository(prisma: PrismaClient): WorkflowRe
         orderBy: { updatedAt: "desc" },
       }),
 
+    count: (userId) => prisma.workflow.count({ where: { userId } }),
+
     find,
 
     create: async (userId, { name, graph }) =>

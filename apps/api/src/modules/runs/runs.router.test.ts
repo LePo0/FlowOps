@@ -31,6 +31,8 @@ describe("historique des exécutions", () => {
   let fetchMock: ReturnType<typeof productsFetch>;
   let app: Express;
   let workflowId: string;
+  // Horloge des limites d'exécution (30 par minute pour un compte vérifié)
+  let clock = 0;
 
   const build = () =>
     createApp({
@@ -38,6 +40,7 @@ describe("historique des exécutions", () => {
       auth: fakeAuth,
       workflows,
       runs: createMemoryRunRepository(workflows),
+      now: () => clock,
     });
   const run = (id = workflowId, graph: unknown = sampleWorkflow, user = ALICE) =>
     as(app, user).post(`/api/workflows/${id}/runs`).send({ graph });
@@ -85,7 +88,10 @@ describe("historique des exécutions", () => {
   });
 
   it(`ne garde que les ${MAX_RUNS_PER_WORKFLOW} exécutions les plus récentes`, async () => {
-    for (let i = 0; i < MAX_RUNS_PER_WORKFLOW + 2; i++) await run();
+    for (let i = 0; i < MAX_RUNS_PER_WORKFLOW + 2; i++) {
+      clock += 60_000;
+      await run();
+    }
 
     const res = await as(app, ALICE).get(`/api/workflows/${workflowId}/runs`);
 

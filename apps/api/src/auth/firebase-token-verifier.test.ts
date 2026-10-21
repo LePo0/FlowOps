@@ -56,7 +56,35 @@ describe("vérificateur de jetons Firebase", () => {
       email: "alice@example.com",
       emailVerified: true,
       name: "Alice",
+      anonymous: false,
     });
+  });
+
+  it("reconnaît une session de démo (compte anonyme Firebase)", async () => {
+    const token = await sign({
+      email: undefined,
+      email_verified: undefined,
+      name: undefined,
+      provider_id: "anonymous",
+      firebase: { identities: {}, sign_in_provider: "anonymous" },
+    });
+
+    await expect(verify(token)).resolves.toEqual({
+      uid: "uid-alice",
+      email: undefined,
+      emailVerified: false,
+      name: undefined,
+      anonymous: true,
+    });
+  });
+
+  it("ne prend pas un compte email/mot de passe non vérifié pour une session de démo (A3)", async () => {
+    const token = await sign({
+      email_verified: false,
+      firebase: { identities: { email: ["alice@example.com"] }, sign_in_provider: "password" },
+    });
+
+    await expect(verify(token)).resolves.toMatchObject({ anonymous: false, emailVerified: false });
   });
 
   it("signale un email non vérifié ou absent", async () => {
@@ -114,7 +142,18 @@ describe("vérificateur de jetons de l'émulateur", () => {
       email: "alice@example.com",
       emailVerified: true,
       name: undefined,
+      anonymous: false,
     });
+  });
+
+  it("reconnaît une session de démo de l'émulateur", async () => {
+    const token = unsignedToken({
+      email: undefined,
+      email_verified: undefined,
+      firebase: { identities: {}, sign_in_provider: "anonymous" },
+    });
+
+    await expect(verify(token)).resolves.toMatchObject({ anonymous: true, email: undefined });
   });
 
   it.each<[string, JWTPayload]>([

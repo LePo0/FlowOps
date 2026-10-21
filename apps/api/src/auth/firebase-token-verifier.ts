@@ -18,6 +18,13 @@ const FIREBASE_JWKS_URL =
 const isKeyFetchFailure = (error: unknown): boolean =>
   error instanceof errors.JWKSTimeout || error instanceof errors.JWKSInvalid;
 
+// Fournisseur de connexion, dans le claim `firebase` signé avec le reste du jeton
+const isAnonymousSignIn = (claim: unknown): boolean =>
+  typeof claim === "object" &&
+  claim !== null &&
+  "sign_in_provider" in claim &&
+  claim.sign_in_provider === "anonymous";
+
 const issuer = (projectId: string) => `https://securetoken.google.com/${projectId}`;
 
 // Claims vérifiés après jose (ou à la place de jose pour l'émulateur), puis identité extraite
@@ -36,6 +43,7 @@ function identityFromClaims(payload: JWTPayload): VerifiedIdentity {
     email: typeof email === "string" ? email : undefined,
     emailVerified: emailVerified === true,
     name: typeof name === "string" ? name : undefined,
+    anonymous: isAnonymousSignIn(payload["firebase"]),
   };
 }
 

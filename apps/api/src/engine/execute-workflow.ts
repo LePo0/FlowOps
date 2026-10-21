@@ -2,7 +2,7 @@ import { topologicalSort, type WorkflowEdge } from "@flowops/shared";
 import { runHandler } from "./handlers.js";
 import { NodeError, technicalDetail } from "./node-error.js";
 import type { ExecutionDeps, ExecutionResult, HandlerContext, NodeResult } from "./types.js";
-import { DEFAULT_MAX_DURATION_MS, deadlineMessage } from "./limits.js";
+import { DEFAULT_MAX_DURATION_MS, MAX_RESPONSE_BYTES, deadlineMessage } from "./limits.js";
 import { validateGraph } from "./validate-graph.js";
 
 export async function executeWorkflow(
@@ -31,6 +31,7 @@ export async function executeWorkflow(
     fetch: deps.fetch,
     deadline: AbortSignal.timeout(maxDurationMs),
     maxDurationMs,
+    maxResponseBytes: deps.maxResponseBytes ?? MAX_RESPONSE_BYTES,
   };
   const succeeded = new Set<string>();
   const selectedBranch = new Map<string, "true" | "false">();

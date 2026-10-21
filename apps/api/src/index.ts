@@ -8,6 +8,8 @@ import { createPrismaUserDirectory } from "./auth/prisma-user-directory.js";
 import { env } from "./config/env.js";
 import { describeDatabaseError, loadServerConfig } from "./config/server-config.js";
 import { createPrismaClient } from "./db/client.js";
+import { createPrismaDemoSessionCleaner, scheduleDemoSessionCleanup } from "./demo/cleanup.js";
+import { DEMO_EXAMPLES } from "./demo/examples.js";
 import { createGuardedFetch } from "./engine/network/guarded-fetch.js";
 import { pinnedTransport } from "./engine/network/transport.js";
 import { createPrismaRunRepository } from "./modules/runs/prisma-run.repository.js";
@@ -54,11 +56,14 @@ const app = createApp({
   fetch: guardedFetch,
   auth: {
     verifyToken,
-    users: createPrismaUserDirectory(prisma),
+    users: createPrismaUserDirectory(prisma, { demoExamples: DEMO_EXAMPLES }),
+    demoSessionsEnabled: env.DEMO_SESSIONS_ENABLED,
   },
   workflows,
   runs: createPrismaRunRepository(prisma),
 });
+
+scheduleDemoSessionCleanup(createPrismaDemoSessionCleaner(prisma));
 
 app.listen(env.PORT, () => {
   console.log(`API listening on http://localhost:${env.PORT}`);
