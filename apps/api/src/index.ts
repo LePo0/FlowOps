@@ -1,6 +1,9 @@
 import { lookup } from "node:dns/promises";
 import { createApp } from "./app.js";
-import { createFirebaseTokenVerifier } from "./auth/firebase-token-verifier.js";
+import {
+  createEmulatorTokenVerifier,
+  createFirebaseTokenVerifier,
+} from "./auth/firebase-token-verifier.js";
 import { createPrismaUserDirectory } from "./auth/prisma-user-directory.js";
 import { env } from "./config/env.js";
 import { describeDatabaseError, loadServerConfig } from "./config/server-config.js";
@@ -16,7 +19,18 @@ if (!loaded.ok) {
   console.error(loaded.error);
   process.exit(1);
 }
-const { databaseUrl, firebaseProjectId, networkPolicy } = loaded.config;
+const { databaseUrl, firebaseProjectId, authEmulatorHost, networkPolicy } = loaded.config;
+
+// Tests de bout en bout : jetons non signés de l'émulateur (jamais en production, voir server-config.ts)
+if (authEmulatorHost !== undefined) {
+  console.warn(
+    `Émulateur Firebase Auth (${authEmulatorHost}) : jetons non signés acceptés pour ${firebaseProjectId}`,
+  );
+}
+const verifyToken =
+  authEmulatorHost === undefined
+    ? createFirebaseTokenVerifier(firebaseProjectId)
+    : createEmulatorTokenVerifier(firebaseProjectId);
 
 // fetch du nœud HTTP : politique réseau vérifiée à chaque connexion, redirections comprises
 const guardedFetch = createGuardedFetch({
@@ -39,7 +53,7 @@ const workflows = createPrismaWorkflowRepository(prisma);
 const app = createApp({
   fetch: guardedFetch,
   auth: {
-    verifyToken: createFirebaseTokenVerifier(firebaseProjectId),
+    verifyToken,
     users: createPrismaUserDirectory(prisma),
   },
   workflows,

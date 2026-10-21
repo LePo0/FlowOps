@@ -8,6 +8,7 @@ const complete: Env = {
   CORS_ORIGIN: "http://localhost:5173",
   DATABASE_URL: "postgresql://flowops:secret@db.local:5432/flowops",
   FIREBASE_PROJECT_ID: "flowops-test",
+  FIREBASE_AUTH_EMULATOR_HOST: undefined,
   HTTP_ALLOWED_TARGETS: "",
   HTTP_DENIED_TARGETS: "",
 };
@@ -49,6 +50,44 @@ describe("configuration de démarrage du serveur", () => {
     expect(error).toContain("DATABASE_URL");
     expect(error).toContain("FIREBASE_PROJECT_ID");
     expect(refusal({ ...complete, FIREBASE_PROJECT_ID: undefined })).not.toContain("DATABASE_URL");
+  });
+
+  it("vérifie les vrais jetons Google par défaut", () => {
+    const result = loadServerConfig(complete);
+
+    expect(result.ok && result.config.authEmulatorHost).toBeUndefined();
+  });
+
+  it("accepte l'émulateur Firebase hors production, pour un projet demo-*", () => {
+    const result = loadServerConfig({
+      ...complete,
+      NODE_ENV: "test",
+      FIREBASE_PROJECT_ID: "demo-flowops",
+      FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
+    });
+
+    expect(result.ok && result.config.authEmulatorHost).toBe("127.0.0.1:9099");
+  });
+
+  it("refuse l'émulateur Firebase en production, même pour un projet demo-*", () => {
+    const error = refusal({
+      ...complete,
+      FIREBASE_PROJECT_ID: "demo-flowops",
+      FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
+    });
+
+    expect(error).toContain("interdite en production");
+  });
+
+  it("refuse l'émulateur Firebase avec un vrai projet", () => {
+    const error = refusal({
+      ...complete,
+      NODE_ENV: "development",
+      FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099",
+    });
+
+    expect(error).toContain("projet de démonstration");
+    expect(error).toContain("flowops-test");
   });
 
   it.each([
