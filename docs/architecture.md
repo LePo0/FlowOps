@@ -99,12 +99,12 @@ Organisation : une route par module (`src/modules/<nom>/` : routeur + schémas),
 
 En développement, `npm run dev:api` lance Node avec `--use-system-ca` : Node fait alors confiance au magasin de certificats du système, en plus des siens. Sans cette option, derrière un proxy d'entreprise qui inspecte le HTTPS, toutes les requêtes du nœud HTTP échouent avec « Certificat TLS non reconnu ».
 
-| Route                                         | Rôle                                                                           |
-| --------------------------------------------- | ------------------------------------------------------------------------------ |
-| `GET /health`                                 | Sonde de disponibilité : `{ "status": "ok" }` (seule route publique)           |
-| `POST /api/run`                               | Exécute un graphe envoyé dans le corps (**local uniquement**, voir ci-dessous) |
-| `/api/workflows`                              | CRUD des workflows de l'utilisateur courant (voir ci-dessous)                  |
-| `/api/workflows/:id/runs`, `/api/runs/:runId` | Historique des exécutions d'un workflow enregistré (voir ci-dessous)           |
+| Route                                         | Rôle                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------- |
+| `GET /health`                                 | Sonde de disponibilité : `{ "status": "ok" }` (seule route publique)      |
+| `POST /api/run`                               | Exécute un graphe envoyé dans le corps, sans historique (voir ci-dessous) |
+| `/api/workflows`                              | CRUD des workflows de l'utilisateur courant (voir ci-dessous)             |
+| `/api/workflows/:id/runs`, `/api/runs/:runId` | Historique des exécutions d'un workflow enregistré (voir ci-dessous)      |
 
 ### Authentification
 
@@ -130,6 +130,7 @@ Le middleware `authenticate()` (`src/auth/`) protège toutes les routes `/api`, 
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | En-tête absent, autre schéma que `Bearer`, jeton refusé | `401` `UNAUTHENTICATED`                                                               |
 | Jeton valide mais adresse email non vérifiée            | `403` `EMAIL_NOT_VERIFIED` (sinon, on pourrait ouvrir un compte à l'adresse d'autrui) |
+| Jeton anonyme avec `DEMO_SESSIONS_ENABLED=false`        | `403` `DEMO_SESSIONS_DISABLED`                                                        |
 | Clés publiques injoignables (réseau, proxy)             | `500` journalisé : une panne n'est pas confondue avec un jeton invalide               |
 | Ressource d'un autre utilisateur                        | `404`, comme une ressource inexistante                                                |
 
@@ -138,6 +139,21 @@ Le middleware `authenticate()` (`src/auth/`) protège toutes les routes `/api`, 
 - **Tests** : `createApp` reçoit `auth: { verifyToken, users }`. Les tests de routes utilisent un double (`test-support/fake-auth.ts` : le jeton est l'identifiant de l'utilisateur) mais passent par le vrai middleware. Le vérificateur est testé avec des jetons signés par une clé locale, sans réseau.
 - **CORS** limité à `CORS_ORIGIN` (l'éditeur).
 - Le serveur refuse de démarrer sans `DATABASE_URL` ni `FIREBASE_PROJECT_ID`. Deux projets Firebase séparés : `-dev` pour le local, `-prod` pour la mise en ligne.
+
+#### Sessions de démo
+
+Pour que FlowOps soit testable sans compte, chaque visiteur reçoit une **session de démo** : un compte anonyme Firebase, propre à son navigateur. Pour l'API, c'est un utilisateur comme un autre (même middleware, même isolation), avec ces différences :
+
+- le jeton anonyme (`firebase.sign_in_provider` = `anonymous`) est accepté sans email ; `DEMO_SESSIONS_ENABLED=false` le refuse (`403` `DEMO_SESSIONS_DISABLED`) sans toucher aux comptes vérifiés ;
+- à la création du `User` (`isAnonymous`, sans email), trois workflows d'exemple sont créés dans la même écriture (`src/demo/examples.ts`) ;
+- des quotas plus stricts (`src/usage/plans.ts`) : exécutions par minute (par compte et par adresse IP), exécutions simultanées, durée, taille des réponses, workflows enregistrés, historique conservé ;
+- `User.lastSeenAt` est mis à jour à l'heure près ; l'API supprime les sessions inactives depuis 7 jours, au démarrage puis toutes les heures (`src/demo/cleanup.ts`).
+
+Le visiteur peut transformer sa session en vrai compte (même uid Firebase) : le `User` perd `isAnonymous`, garde ses workflows et passe aux limites d'un compte vérifié. L'éditeur des sessions de démo est à venir. Règles, seuils et options écartées (compte de démo partagé, mode invité sans enregistrement) : [`docs/security/demo-sessions.md`](security/demo-sessions.md).
+
+#### Limites d'exécution
+
+`POST /api/run` et `POST /api/workflows/:id/runs` passent par `createRunLimits()` (`src/usage/run-limits.ts`) avant toute lecture du graphe : au-delà, `429` `RATE_LIMITED` avec `Retry-After`, sans appeler d'URL. Les compteurs sont en mémoire, par instance : limite approximative, acceptée avec peu d'instances Cloud Run. L'adresse IP est `req.ip`, qui tient compte de `TRUST_PROXY_HOPS` (1 derrière Cloud Run : l'adresse ajoutée par Google à `X-Forwarded-For`, pas celle qu'écrit le client) ; en IPv6, la limite porte sur le /64.
 
 ### `/api/workflows`
 
@@ -151,6 +167,7 @@ Le middleware `authenticate()` (`src/auth/`) protège toutes les routes `/api`, 
 
 - Corps validés avec le contrat partagé (`SaveWorkflowRequestSchema`) : `400` `INVALID_BODY` sinon. Le graphe doit être complet (mêmes règles qu'à l'exécution) : un brouillon avec un champ vide ne s'enregistre pas.
 - Un identifiant inconnu, mal formé ou appartenant à un autre utilisateur donne le même `404` `NOT_FOUND` : on ne révèle pas l'existence d'un workflow d'autrui.
+- Une session de démo garde au plus 5 workflows : au-delà, `403` `QUOTA_EXCEEDED`.
 - Accès aux données via une interface `WorkflowRepository` : implémentation Prisma en production, en mémoire pour les tests de routes.
 
 ### Historique des exécutions
@@ -163,7 +180,8 @@ Le middleware `authenticate()` (`src/auth/`) protège toutes les routes `/api`, 
 
 - C'est le **graphe affiché dans l'éditeur** qui est exécuté et stocké, même s'il contient des modifications non enregistrées : l'historique montre exactement ce qui a tourné. L'éditeur passe par cette route quand le workflow ouvert est enregistré, et par `POST /api/run` sinon (exécution sans historique).
 - La propriété du workflow est vérifiée **avant** l'exécution : aucune URL n'est appelée pour le workflow d'un autre utilisateur. Un graphe invalide donne `400` avec les codes du moteur et n'est pas enregistré.
-- Enregistrement en une transaction : `WorkflowRun`, ses `NodeRun`, puis suppression des exécutions au-delà des **50 plus récentes** (`MAX_RUNS_PER_WORKFLOW`) : une sortie de nœud HTTP peut atteindre 1 Mo.
+- Enregistrement en une transaction : `WorkflowRun`, ses `NodeRun`, puis suppression des exécutions au-delà des **50 plus récentes** (`MAX_RUNS_PER_WORKFLOW`, 10 pour une session de démo) : une sortie de nœud HTTP peut atteindre 1 Mo.
+- Session de démo : l'historique garde au plus 500 Ko de résultats par exécution. Au-delà, l'entrée et la sortie des nœuds suivants sont remplacées par un message ; la réponse de la route, elle, reste complète.
 
 ### `POST /api/run`
 
@@ -220,7 +238,8 @@ Principes :
 | --------------------------------------------------- | ------------------------------------------------ |
 | Nombre de nœuds et d'arêtes                         | En place                                         |
 | Taille du corps des requêtes API (1 Mo)             | En place                                         |
-| Limite d'exécutions par utilisateur                 | **À venir, prérequis avant la mise en ligne**    |
+| Limite d'exécutions (par compte, par IP en démo)    | En place (`src/usage/`)                          |
+| Quotas et nettoyage des sessions de démo            | En place (`docs/security/demo-sessions.md`)      |
 | Timeout par requête HTTP (10 s par défaut)          | En place                                         |
 | Taille maximale de réponse (1 Mo, lue en flux)      | En place                                         |
 | Références sûres (propriétés propres uniquement)    | En place                                         |
@@ -237,12 +256,12 @@ FlowOps doit pouvoir tourner en SaaS public comme sur le réseau d'une entrepris
 
 PostgreSQL et Prisma 7 (`apps/api/prisma/schema.prisma`). Prisma 7 se connecte via le pilote `pg` (`@prisma/adapter-pg`) ; le client est généré dans `apps/api/src/generated/prisma` (ignoré par Git, régénéré à chaque `npm install`).
 
-| Table         | Contenu                                                                                                         |
-| ------------- | --------------------------------------------------------------------------------------------------------------- |
-| `User`        | Compte Firebase : `authUid` (unique, clé d'identité), `email`, `name` ; créé à la première requête              |
-| `Workflow`    | `userId`, `name`, `graphJson` (JSONB, validé avec le schéma Zod partagé avant écriture), dates                  |
-| `WorkflowRun` | Statut, début, durée, **copie du graphe exécuté** : l'historique reste cohérent même si le workflow est modifié |
-| `NodeRun`     | Un enregistrement par nœud, dans l'ordre d'exécution : statut, entrée, sortie, erreur, détail technique, durée  |
+| Table         | Contenu                                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `User`        | Compte Firebase : `authUid` (unique, clé d'identité), `email` (absent en démo), `name`, `isAnonymous`, `lastSeenAt` ; créé à la première requête |
+| `Workflow`    | `userId`, `name`, `graphJson` (JSONB, validé avec le schéma Zod partagé avant écriture), dates                                                   |
+| `WorkflowRun` | Statut, début, durée, **copie du graphe exécuté** : l'historique reste cohérent même si le workflow est modifié                                  |
+| `NodeRun`     | Un enregistrement par nœud, dans l'ordre d'exécution : statut, entrée, sortie, erreur, détail technique, durée                                   |
 
 Suppressions en cascade : un utilisateur emporte ses workflows, un workflow ses exécutions. Un utilisateur ne voit que ses propres workflows et exécutions.
 

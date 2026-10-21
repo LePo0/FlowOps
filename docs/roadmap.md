@@ -1,6 +1,6 @@
 # Roadmap FlowOps
 
-_Dernière mise à jour : 19 octobre 2026._
+_Dernière mise à jour : 21 octobre 2026._
 
 ## Fait
 
@@ -77,17 +77,30 @@ FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une ent
 - [x] Tests d'API : exécution en échec enregistrée, corps invalides, workflow supprimé pendant l'exécution, réponse déjà commencée ; configuration de démarrage (`config/server-config.ts`) testée : variables obligatoires, listes réseau invalides, message d'une base injoignable
 - [ ] Scénarios de bout en bout (nominal, erreur, modification) : Playwright et émulateur Firebase Auth. Les jetons de l'émulateur ne sont pas signés : l'API ne les accepte que si `FIREBASE_AUTH_EMULATOR_HOST` est défini, et refuse de démarrer avec cette variable en production
 
-### 8. Déploiement
+### 8. Sessions de démo et limites d'usage
 
-- [ ] **Limite d'exécutions par utilisateur, prérequis avant la mise en ligne** : avec l'inscription ouverte, rien n'empêche aujourd'hui un compte de lancer des exécutions en boucle (relais pour inonder un site tiers depuis nos adresses, facture Cloud Run). Par exemple 30 exécutions par minute et par compte, `429` au-delà ; à cadrer : seuils, compteur partagé entre plusieurs instances
+FlowOps doit être testable sans compte, historique et relance compris : chaque visiteur reçoit une session de démo privée (compte anonyme Firebase), préremplie d'exemples. Tout le monde pouvant alors obtenir un jeton, les limites d'usage deviennent indispensables. Scénarios, seuils et options écartées : [`docs/security/demo-sessions.md`](security/demo-sessions.md).
+
+- [ ] Scénarios de sécurité rédigés avant le développement
+- [x] **Limite d'exécutions, prérequis avant la mise en ligne** : par compte (10/min en démo, 30/min vérifié), par IP (ou /64 en IPv6) pour les sessions de démo, exécutions simultanées, `429` au-delà ; compteur en mémoire, Cloud Run limité à peu d'instances
+- [x] API : jetons anonymes acceptés (`sign_in_provider` = `anonymous`), `User.isAnonymous` et `lastSeenAt`, interrupteur `DEMO_SESSIONS_ENABLED`, `TRUST_PROXY_HOPS`
+- [x] Quotas des sessions de démo : durée d'exécution, taille des réponses, workflows enregistrés, exécutions conservées, taille des résultats conservés
+- [x] Trois workflows d'exemple créés avec la session (succès, références entre nœuds, erreur à corriger)
+- [x] Nettoyage des sessions inactives depuis 7 jours, dans le processus de l'API (au démarrage puis toutes les heures)
+- [ ] Éditeur : session de démo ouverte sans clic, bandeau, passage à un vrai compte (`linkWithCredential`), connexion depuis le menu
+- [ ] Scénarios traduits en tests automatisés, puis vérification finale avec l'émulateur Firebase Auth
+
+### 9. Déploiement
+
 - [ ] Dockerfile de l'API
 - [ ] Cloud Run et base managée
 - [ ] Frontend sur Firebase Hosting
 - [ ] Déploiement via GitHub Actions (Workload Identity Federation, pas de clé statique)
-- [ ] Budget et alertes de coût
+- [ ] Budget et alertes de coût, nombre maximal d'instances
+- [ ] Firebase `-prod` : fournisseur anonyme activé, domaines autorisés limités à l'éditeur, clé d'API restreinte par référent
 - [ ] Installation en entreprise : image Docker de l'API et de l'éditeur configurable par variables d'environnement (politique réseau, projet Firebase, base), documentée
 
-### 9. Finitions portfolio
+### 10. Finitions portfolio
 
 - [ ] README
 - [ ] `docs/architecture.md` à jour avec un schéma final
