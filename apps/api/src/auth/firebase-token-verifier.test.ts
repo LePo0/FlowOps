@@ -8,7 +8,10 @@ import {
   type JWTPayload,
   type JWTVerifyGetKey,
 } from "jose";
-import { createFirebaseTokenVerifier } from "./firebase-token-verifier.js";
+import {
+  createEmulatorTokenVerifier,
+  createFirebaseTokenVerifier,
+} from "./firebase-token-verifier.js";
 import { InvalidTokenError } from "./identity.js";
 
 const PROJECT = "flowops-test";
@@ -111,5 +114,63 @@ describe("vérificateur de jetons Firebase", () => {
 
     await expect(verify("pas-un-jwt")).rejects.toBeInstanceOf(InvalidTokenError);
     await expect(verify(unsigned)).rejects.toBeInstanceOf(InvalidTokenError);
+  });
+});
+
+// Jetons tels que les émet l'émulateur Firebase Auth : en-tête alg none, pas de signature
+describe("vérificateur de jetons de l'émulateur", () => {
+  const unsignedToken = (claims: JWTPayload = {}, header: object = { alg: "none", typ: "JWT" }) => {
+    const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    const payload = {
+      aud: PROJECT,
+      iss: `https://securetoken.google.com/${PROJECT}`,
+      sub: "uid-alice",
+      iat: now() - 60,
+      exp: now() + 3600,
+      auth_time: now() - 120,
+      email: "alice@example.com",
+      email_verified: true,
+      ...claims,
+    };
+    return `${encode(header)}.${encode(payload)}.`;
+  };
+  const verify = createEmulatorTokenVerifier(PROJECT);
+
+  it("renvoie l'identité d'un jeton de l'émulateur", async () => {
+    await expect(verify(unsignedToken())).resolves.toEqual({
+      uid: "uid-alice",
+      email: "alice@example.com",
+      emailVerified: true,
+      name: undefined,
+      anonymous: false,
+    });
+  });
+
+  it("reconnaît une session de démo de l'émulateur", async () => {
+    const token = unsignedToken({
+      email: undefined,
+      email_verified: undefined,
+      firebase: { identities: {}, sign_in_provider: "anonymous" },
+    });
+
+    await expect(verify(token)).resolves.toMatchObject({ anonymous: true, email: undefined });
+  });
+
+  it.each<[string, JWTPayload]>([
+    ["expiré", { exp: now() - 10 }],
+    ["sans expiration", { exp: undefined }],
+    ["émis pour un autre projet", { aud: "autre-projet" }],
+    ["émis par un autre émetteur", { iss: "https://securetoken.google.com/autre-projet" }],
+    ["sans sujet", { sub: "" }],
+    ["authentifié dans le futur", { auth_time: now() + 3600 }],
+  ])("garde les contrôles de claims : refuse un jeton %s", async (_label, claims) => {
+    await expect(verify(unsignedToken(claims))).rejects.toBeInstanceOf(InvalidTokenError);
+  });
+
+  it("refuse un jeton signé et un jeton illisible", async () => {
+    await expect(verify(unsignedToken({}, { alg: "RS256", kid: KID }))).rejects.toBeInstanceOf(
+      InvalidTokenError,
+    );
+    await expect(verify("pas-un-jwt")).rejects.toBeInstanceOf(InvalidTokenError);
   });
 });

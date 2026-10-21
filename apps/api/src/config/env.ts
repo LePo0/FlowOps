@@ -12,6 +12,12 @@ const EnvSchema = z.object({
     (value) => (value === "" ? undefined : value),
     z.string().optional(),
   ),
+  // Tests de bout en bout uniquement : accepte les jetons non signés de l'émulateur Firebase
+  // Auth (ex. 127.0.0.1:9099). Refusé en production et hors d'un projet demo-* (server-config.ts).
+  FIREBASE_AUTH_EMULATOR_HOST: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().optional(),
+  ),
   // Politique réseau du nœud HTTP (docs/security/http-node.md). Vides : adresses publiques seules.
   HTTP_ALLOWED_TARGETS: z.string().default(""),
   HTTP_DENIED_TARGETS: z.string().default(""),

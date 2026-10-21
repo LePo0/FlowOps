@@ -74,3 +74,49 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run format:check
+
+  # Parcours complets dans un navigateur : éditeur, API, base et émulateur Firebase Auth
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: flowops_e2e
+          POSTGRES_USER: flowops
+          POSTGRES_PASSWORD: flowops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowops -d flowops_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgresql://flowops:flowops@localhost:5432/flowops_e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      # L'émulateur Firebase est une application Java (21 ou plus)
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      # Archive de l'émulateur, téléchargée au premier lancement
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - run: npm run e2e -w e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7

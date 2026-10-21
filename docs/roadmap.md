@@ -75,7 +75,7 @@ FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une ent
 
 - [x] Cas limites du moteur : opérateurs de comparaison, fusion de branches, référence vers un nœud ignoré ou inexistant, réponse JSON mal formée, échéance atteinte entre deux nœuds, échecs DNS et de connexion
 - [x] Tests d'API : exécution en échec enregistrée, corps invalides, workflow supprimé pendant l'exécution, réponse déjà commencée ; configuration de démarrage (`config/server-config.ts`) testée : variables obligatoires, listes réseau invalides, message d'une base injoignable
-- [ ] Scénarios de bout en bout (nominal, erreur, modification) : Playwright et émulateur Firebase Auth. Les jetons de l'émulateur ne sont pas signés : l'API ne les accepte que si `FIREBASE_AUTH_EMULATOR_HOST` est défini, et refuse de démarrer avec cette variable en production
+- [x] Scénarios de bout en bout (`e2e/`, Playwright et émulateur Firebase Auth, en CI) : nominal, erreur (cible refusée, réponse 404), modification et relance depuis l'historique, inscription avec vérification de l'adresse, déconnexion et isolation des comptes. Les jetons de l'émulateur ne sont pas signés : l'API ne les accepte qu'avec `FIREBASE_AUTH_EMULATOR_HOST`, hors production et pour un projet `demo-*`
 
 ### 8. Sessions de démo et limites d'usage
 

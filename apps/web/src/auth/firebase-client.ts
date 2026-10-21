@@ -1,5 +1,6 @@
 import { initializeApp, type FirebaseOptions } from "firebase/app";
 import {
+  connectAuthEmulator,
   createUserWithEmailAndPassword,
   getAuth,
   GoogleAuthProvider,
@@ -19,8 +20,15 @@ const toAuthUser = (user: User): AuthUser => ({
   emailVerified: user.emailVerified,
 });
 
-export function createFirebaseAuthClient(options: FirebaseOptions): AuthClient {
+export function createFirebaseAuthClient(
+  options: FirebaseOptions,
+  emulatorHost?: string,
+): AuthClient {
   const auth = getAuth(initializeApp(options));
+  // Les jetons de l'émulateur ne sont pas signés : l'API ne les accepte qu'en test
+  if (emulatorHost !== undefined) {
+    connectAuthEmulator(auth, `http://${emulatorHost}`, { disableWarnings: true });
+  }
   // Langue des emails de vérification et de réinitialisation, et de la fenêtre Google
   auth.languageCode = "fr";
 

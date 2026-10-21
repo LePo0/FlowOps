@@ -137,6 +137,7 @@ Le middleware `authenticate()` (`src/auth/`) protège toutes les routes `/api`, 
 - **Vérification du jeton** (`firebase-token-verifier.ts`) avec `jose`, selon la méthode documentée par Firebase pour les bibliothèques JWT tierces : signature RS256 par les clés publiques de Google, `aud` = projet, `iss` = `https://securetoken.google.com/<projet>`, `exp` futur, `iat` et `auth_time` passés, `sub` non vide. `firebase-admin` n'est pas utilisé : il renvoie la même erreur pour un jeton falsifié et pour un échec de téléchargement des clés.
 - **Identité** : l'utilisateur est retrouvé par l'uid Firebase (`User.authUid`) et créé à sa première requête (`prisma-user-directory.ts`, sans écriture tant que l'email et le nom ne changent pas). L'email n'est pas une clé : il peut changer, et deux comptes Firebase peuvent le partager.
 - **Tests** : `createApp` reçoit `auth: { verifyToken, users }`. Les tests de routes utilisent un double (`test-support/fake-auth.ts` : le jeton est l'identifiant de l'utilisateur) mais passent par le vrai middleware. Le vérificateur est testé avec des jetons signés par une clé locale, sans réseau.
+- **Émulateur Firebase Auth** (tests de bout en bout) : ses jetons ne sont pas signés (`alg: none`). Avec `FIREBASE_AUTH_EMULATOR_HOST`, l'API les vérifie avec `createEmulatorTokenVerifier` : mêmes contrôles de claims, sans la signature. `config/server-config.ts` refuse de démarrer dans ce mode en production, ou si `FIREBASE_PROJECT_ID` n'est pas un projet `demo-*` (réservé à l'émulateur par Firebase) : une variable oubliée ne peut pas ouvrir l'API à des jetons fabriqués. L'éditeur se connecte à l'émulateur avec `VITE_FIREBASE_AUTH_EMULATOR_HOST`.
 - **CORS** limité à `CORS_ORIGIN` (l'éditeur).
 - Le serveur refuse de démarrer sans `DATABASE_URL` ni `FIREBASE_PROJECT_ID`. Deux projets Firebase séparés : `-dev` pour le local, `-prod` pour la mise en ligne.
 
@@ -293,7 +294,8 @@ Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et appliq
 
 - Tests : Vitest (+ Supertest pour l'API). Le moteur est testé sans réseau.
 - Tests d'intégration de l'API sur une vraie base PostgreSQL (`TEST_DATABASE_URL`) : Vitest y applique les migrations avant de lancer les tests, et ne leur transmet jamais `DATABASE_URL`. Sans base de test, ils sont ignorés en local mais font échouer la CI, où un service `postgres:18` jetable est fourni.
-- CI GitHub Actions : `lint`, `typecheck`, `test` et `format` en parallèle, sur pull requests et sur `main`.
+- Tests de bout en bout (`e2e/`) : Playwright pilote l'éditeur dans Chromium contre la vraie API, une base dédiée (`flowops_e2e`) et l'émulateur Firebase Auth. Un service cible local remplace Internet pour le nœud HTTP : il écoute sur une adresse privée de la machine, ouverte par `HTTP_ALLOWED_TARGETS`, puisque la boucle locale reste toujours refusée. Scénarios : inscription et vérification de l'adresse, déconnexion et isolation, exécution nominale, cible refusée, réponse 404, modification puis relance depuis l'historique.
+- CI GitHub Actions : `lint`, `typecheck`, `test`, `format` et `e2e` en parallèle, sur pull requests et sur `main`.
 - Workflow Git : `main` protégé, branches courtes, pull requests avec squash.
 - Déploiement cible (à venir) : Docker, Cloud Run, base managée, frontend sur Firebase Hosting pour le SaaS ; la même image Docker, configurée par variables d'environnement, pour une installation en entreprise.
 
