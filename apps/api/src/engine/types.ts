@@ -41,6 +41,8 @@ export interface ExecutionDeps {
   fetch: typeof fetch;
   // Durée maximale de toute l'exécution (60 s par défaut)
   maxDurationMs?: number;
+  // Taille maximale d'une réponse HTTP, en octets décompressés (1 Mo par défaut)
+  maxResponseBytes?: number;
 }
 
 export interface HandlerContext {
@@ -49,6 +51,7 @@ export interface HandlerContext {
   // Échéance globale de l'exécution : annule la requête en cours quand elle est atteinte
   deadline: AbortSignal;
   maxDurationMs: number;
+  maxResponseBytes: number;
 }
 
 export interface HandlerResult {

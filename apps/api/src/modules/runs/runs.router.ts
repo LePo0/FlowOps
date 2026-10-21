@@ -1,5 +1,5 @@
-import { Router, type Request } from "express";
-import { currentUserId } from "../../auth/authenticate.js";
+import { Router, type Request, type RequestHandler } from "express";
+import { currentPlan, currentUserId } from "../../auth/authenticate.js";
 import {
   WorkflowGraphSchema,
   type ApiErrorResponse,
@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 import { executeWorkflow } from "../../engine/index.js";
 import { invalidBody, notFound } from "../../http/errors.js";
+import { fitStoredSize } from "../../usage/stored-size.js";
 import { RunRequestSchema } from "../run/run.schemas.js";
 import type { WorkflowRepository } from "../workflows/workflow.repository.js";
 import type { RunRepository, StoredRun, StoredRunSummary } from "./run.repository.js";
@@ -18,6 +19,8 @@ export interface RunsRouterDeps {
   runs: RunRepository;
   workflows: WorkflowRepository;
   fetch: typeof fetch;
+  // Limites d'exécution (usage/run-limits.ts), appliquées avant la lecture du graphe
+  limitRuns: RequestHandler;
 }
 
 const IdSchema = z.uuid();
@@ -47,9 +50,10 @@ export function createRunsRouter(deps: RunsRouterDeps): Router {
   };
 
   // Exécute le graphe envoyé (celui affiché dans l'éditeur, enregistré ou non) et l'historise
-  router.post("/workflows/:id/runs", async (req, res) => {
+  router.post("/workflows/:id/runs", deps.limitRuns, async (req, res) => {
     const workflowId = idParam(req, "id");
     const userId = currentUserId(res);
+    const plan = currentPlan(res);
     // Vérifié avant d'exécuter : on n'appelle aucune URL pour le workflow d'un autre
     if (!workflowId || !(await deps.workflows.find(userId, workflowId))) {
       res.status(404).json(WORKFLOW_NOT_FOUND);
@@ -62,27 +66,38 @@ export function createRunsRouter(deps: RunsRouterDeps): Router {
     }
 
     const startedAt = new Date();
-    const result = await executeWorkflow(parsed.data.graph, { fetch: deps.fetch });
+    const result = await executeWorkflow(parsed.data.graph, {
+      fetch: deps.fetch,
+      maxDurationMs: plan.maxDurationMs,
+      maxResponseBytes: plan.maxResponseBytes,
+    });
     if (result.status === "INVALID") {
       const body: ApiErrorResponse = { errors: result.errors };
       res.status(400).json(body);
       return;
     }
 
-    const stored = await deps.runs.record(userId, workflowId, {
-      status: result.status,
-      startedAt,
-      durationMs: result.durationMs,
-      // Déjà validé par le moteur : cette lecture ne fait que typer le graphe
-      graph: WorkflowGraphSchema.parse(parsed.data.graph),
-      nodeResults: result.nodeResults,
-    });
+    const stored = await deps.runs.record(
+      userId,
+      workflowId,
+      {
+        status: result.status,
+        startedAt,
+        durationMs: result.durationMs,
+        // Déjà validé par le moteur : cette lecture ne fait que typer le graphe
+        graph: WorkflowGraphSchema.parse(parsed.data.graph),
+        nodeResults: fitStoredSize(result.nodeResults, plan.maxStoredRunBytes),
+      },
+      plan.keptRunsPerWorkflow,
+    );
     if (!stored) {
       // Workflow supprimé pendant l'exécution
       res.status(404).json(WORKFLOW_NOT_FOUND);
       return;
     }
-    res.status(201).location(`${req.baseUrl}/runs/${stored.id}`).json(toDetail(stored));
+    // La réponse montre les résultats complets ; seul l'historique peut être allégé (Q7)
+    const body: RunDetail = { ...toDetail(stored), nodeResults: result.nodeResults };
+    res.status(201).location(`${req.baseUrl}/runs/${stored.id}`).json(body);
   });
 
   router.get("/workflows/:id/runs", async (req, res) => {

@@ -14,3 +14,7 @@ export function invalidBody(error: z.ZodError): ApiErrorResponse {
 export function notFound(message: string): ApiErrorResponse {
   return { errors: [{ code: "NOT_FOUND", message }] };
 }
+
+export function quotaExceeded(message: string): ApiErrorResponse {
+  return { errors: [{ code: "QUOTA_EXCEEDED", message }] };
+}

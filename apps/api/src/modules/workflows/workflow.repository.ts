@@ -16,6 +16,7 @@ export type StoredWorkflowSummary = Omit<StoredWorkflow, "graph">;
  */
 export interface WorkflowRepository {
   list(userId: string): Promise<StoredWorkflowSummary[]>;
+  count(userId: string): Promise<number>;
   find(userId: string, id: string): Promise<StoredWorkflow | null>;
   create(userId: string, input: SaveWorkflowRequest): Promise<StoredWorkflow>;
   update(userId: string, id: string, input: SaveWorkflowRequest): Promise<StoredWorkflow | null>;

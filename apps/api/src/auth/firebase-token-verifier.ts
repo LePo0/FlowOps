@@ -10,6 +10,13 @@ const FIREBASE_JWKS_URL =
 const isKeyFetchFailure = (error: unknown): boolean =>
   error instanceof errors.JWKSTimeout || error instanceof errors.JWKSInvalid;
 
+// Fournisseur de connexion, dans le claim `firebase` signé avec le reste du jeton
+const isAnonymousSignIn = (claim: unknown): boolean =>
+  typeof claim === "object" &&
+  claim !== null &&
+  "sign_in_provider" in claim &&
+  claim.sign_in_provider === "anonymous";
+
 /**
  * Vérifie un jeton d'identité Firebase selon la documentation « Verify ID tokens using a
  * third-party JWT library » : signature RS256, `aud` = projet, `iss` = securetoken du projet,
@@ -38,6 +45,7 @@ export function createFirebaseTokenVerifier(
 
     const now = Date.now() / 1000;
     const { sub, iat, auth_time: authTime, email, email_verified: emailVerified, name } = payload;
+    const { firebase } = payload;
     if (!sub || typeof iat !== "number" || iat > now) {
       throw new InvalidTokenError("Claims sub ou iat invalides");
     }
@@ -50,6 +58,7 @@ export function createFirebaseTokenVerifier(
       email: typeof email === "string" ? email : undefined,
       emailVerified: emailVerified === true,
       name: typeof name === "string" ? name : undefined,
+      anonymous: isAnonymousSignIn(firebase),
     };
   };
 }

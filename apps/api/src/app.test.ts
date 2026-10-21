@@ -61,12 +61,14 @@ describe("authentification des routes /api", () => {
   it("répond 403 si l'email du compte n'est pas vérifié, sans créer l'utilisateur", async () => {
     const resolve = vi.fn(async () => ALICE);
     const app = appWith({
+      ...fakeAuth,
       users: { resolve },
       verifyToken: async (token) => ({
         uid: token,
         email: "alice@test.local",
         emailVerified: false,
         name: undefined,
+        anonymous: false,
       }),
     });
 

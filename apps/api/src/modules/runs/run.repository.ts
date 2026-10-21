@@ -21,8 +21,8 @@ export type NewRun = Omit<StoredRun, "id" | "workflowId">;
  * exécution d'un autre utilisateur se comporte comme s'il n'existait pas (null).
  */
 export interface RunRepository {
-  // Enregistre l'exécution puis ne garde que les MAX_RUNS_PER_WORKFLOW plus récentes
-  record(userId: string, workflowId: string, run: NewRun): Promise<StoredRun | null>;
+  // Enregistre l'exécution puis ne garde que les `keep` plus récentes du workflow
+  record(userId: string, workflowId: string, run: NewRun, keep: number): Promise<StoredRun | null>;
   list(userId: string, workflowId: string): Promise<StoredRunSummary[] | null>;
   find(userId: string, runId: string): Promise<StoredRun | null>;
 }

@@ -10,6 +10,7 @@ import type { RunRepository } from "./modules/runs/run.repository.js";
 import { createRunsRouter } from "./modules/runs/runs.router.js";
 import type { WorkflowRepository } from "./modules/workflows/workflow.repository.js";
 import { createWorkflowsRouter } from "./modules/workflows/workflows.router.js";
+import { createRunLimits } from "./usage/run-limits.js";
 
 export interface AppDeps {
   // fetch du nœud HTTP : en production, le fetch gardé par la politique réseau (index.ts)
@@ -20,10 +21,16 @@ export interface AppDeps {
   workflows?: WorkflowRepository;
   // Historique des exécutions ; nécessite aussi `workflows` (propriété des workflows)
   runs?: RunRepository;
+  // Nombre de proxys devant l'API (1 derrière Cloud Run) : req.ip, base des limites par adresse
+  trustProxyHops?: number;
+  // Horloge des limites d'exécution, remplacée dans les tests
+  now?: () => number;
 }
 
 export function createApp(deps: AppDeps): Express {
   const app = express();
+  app.set("trust proxy", deps.trustProxyHops ?? env.TRUST_PROXY_HOPS);
+  const limitRuns = createRunLimits(deps.now);
 
   app.use(helmet());
   // Seul l'éditeur peut appeler l'API depuis un navigateur
@@ -37,12 +44,17 @@ export function createApp(deps: AppDeps): Express {
   app.use("/api", authenticate(deps.auth));
   app.use(express.json({ limit: "1mb" }));
 
-  app.use("/api/run", createRunRouter({ fetch: deps.fetch }));
+  app.use("/api/run", createRunRouter({ fetch: deps.fetch, limitRuns }));
 
   if (deps.workflows && deps.runs) {
     app.use(
       "/api",
-      createRunsRouter({ runs: deps.runs, workflows: deps.workflows, fetch: deps.fetch }),
+      createRunsRouter({
+        runs: deps.runs,
+        workflows: deps.workflows,
+        fetch: deps.fetch,
+        limitRuns,
+      }),
     );
   }
 

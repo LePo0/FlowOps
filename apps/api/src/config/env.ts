@@ -15,6 +15,11 @@ const EnvSchema = z.object({
   // Politique réseau du nœud HTTP (docs/security/http-node.md). Vides : adresses publiques seules.
   HTTP_ALLOWED_TARGETS: z.string().default(""),
   HTTP_DENIED_TARGETS: z.string().default(""),
+  // Sessions de démo (docs/security/demo-sessions.md) : false refuse les jetons anonymes, sans
+  // redéployer de code, si un abus est constaté
+  DEMO_SESSIONS_ENABLED: z.stringbool().default(true),
+  // Proxys de confiance devant l'API : 0 en local, 1 derrière Cloud Run (X-Forwarded-For)
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

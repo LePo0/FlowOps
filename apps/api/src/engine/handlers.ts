@@ -1,7 +1,7 @@
 import type { ConditionNode, HttpNode, TransformNode, WorkflowNode } from "@flowops/shared";
 import { compare } from "./compare.js";
 import { describeFetchError } from "./http-errors.js";
-import { DEFAULT_TIMEOUT_MS, MAX_RESPONSE_BYTES, deadlineMessage } from "./limits.js";
+import { DEFAULT_TIMEOUT_MS, deadlineMessage, tooLargeMessage } from "./limits.js";
 import { TargetDeniedError } from "./network/guarded-fetch.js";
 import { SENSITIVE_HEADER } from "./network/sensitive-header.js";
 import { NodeError } from "./node-error.js";
@@ -13,12 +13,16 @@ import type { HandlerContext, HandlerResult } from "./types.js";
 class ResponseTooLargeError extends Error {}
 
 /**
- * Lit le corps en flux et s'arrête dès que MAX_RESPONSE_BYTES est dépassé : une réponse de
+ * Lit le corps en flux et s'arrête dès que maxBytes est dépassé : une réponse de
  * plusieurs Go ne passe jamais en mémoire. La taille annoncée (Content-Length) permet de refuser
  * sans rien lire, mais elle peut mentir : seuls les octets reçus font foi.
  */
-async function readLimited(response: Response, signal: AbortSignal): Promise<string> {
-  if (Number(response.headers.get("content-length")) > MAX_RESPONSE_BYTES) {
+async function readLimited(
+  response: Response,
+  signal: AbortSignal,
+  maxBytes: number,
+): Promise<string> {
+  if (Number(response.headers.get("content-length")) > maxBytes) {
     await response.body?.cancel().catch(() => {});
     throw new ResponseTooLargeError();
   }
@@ -38,7 +42,7 @@ async function readLimited(response: Response, signal: AbortSignal): Promise<str
       if (signal.aborted) throw signal.reason;
       if (done) return text + decoder.decode();
       received += value.byteLength;
-      if (received > MAX_RESPONSE_BYTES) {
+      if (received > maxBytes) {
         await reader.cancel().catch(() => {});
         throw new ResponseTooLargeError();
       }
@@ -94,12 +98,12 @@ async function runHttp(node: HttpNode, ctx: HandlerContext): Promise<HandlerResu
   const signal = AbortSignal.any([AbortSignal.timeout(timeout), ctx.deadline]);
   try {
     response = await ctx.fetch(url, { method, headers, body, signal });
-    text = await readLimited(response, signal);
+    text = await readLimited(response, signal, ctx.maxResponseBytes);
   } catch (error) {
     // Cible refusée : message unique et aucune cause jointe (ni adresse, ni erreur réseau)
     if (error instanceof TargetDeniedError) throw new NodeError(error.message, { input });
     if (error instanceof ResponseTooLargeError) {
-      throw new NodeError("Réponse trop volumineuse", { input });
+      throw new NodeError(tooLargeMessage(ctx.maxResponseBytes), { input });
     }
     if (ctx.deadline.aborted) throw new NodeError(deadlineMessage(ctx.maxDurationMs), { input });
 

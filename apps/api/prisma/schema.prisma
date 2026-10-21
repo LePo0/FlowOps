@@ -14,14 +14,22 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(uuid()) @db.Uuid
+  id          String     @id @default(uuid()) @db.Uuid
   // Identifiant du compte Firebase (claim `sub` du jeton) : seule clé d'identité. L'email peut
   // changer et deux comptes Firebase peuvent porter le même : il n'est donc pas unique.
-  authUid   String     @unique
-  email     String
-  name      String?
-  createdAt DateTime   @default(now())
-  workflows Workflow[]
+  authUid     String     @unique
+  // Absent pour une session de démo (compte anonyme Firebase)
+  email       String?
+  name        String?
+  // Session de démo : quotas plus stricts, supprimée après 7 jours sans activité
+  // (docs/security/demo-sessions.md). Passe à false quand le visiteur crée un vrai compte.
+  isAnonymous Boolean    @default(false)
+  // Dernière requête, à l'heure près : sert au nettoyage des sessions de démo inactives
+  lastSeenAt  DateTime   @default(now())
+  createdAt   DateTime   @default(now())
+  workflows   Workflow[]
+
+  @@index([isAnonymous, lastSeenAt])
 }
 
 model Workflow {

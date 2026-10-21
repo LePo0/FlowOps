@@ -251,7 +251,28 @@ describe("Nœud HTTP — ressources", () => {
     expect(body.state.served).toBeLessThanOrEqual(ONE_MB + 64 * 1024);
   });
 
-  it("L5 : corps envoyé au compte-gouttes → le délai du nœud couvre toute la lecture", async () => {
+  it("L1 bis : limite plus basse fournie à l'exécution (sessions de démo) → coupure à cette limite", async () => {
+    const body = trackedBody(ONE_MB);
+    const fetchMock = fetchReturning(
+      () =>
+        new Response(body.stream, {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    const result = await run(chain(http("a", "https://api.public.test/medium")), {
+      fetch: fetchMock,
+      maxResponseBytes: 300_000,
+    });
+
+    const a = result("a");
+    expect(a?.status).toBe("FAILED");
+    expect(a?.error).toBe("Réponse trop volumineuse (plus de 300 Ko)");
+    expect(body.state.served).toBeLessThanOrEqual(300_000 + 64 * 1024);
+  });
+
+  it("L5 :corps envoyé au compte-gouttes → le délai du nœud couvre toute la lecture", async () => {
     // Les en-têtes arrivent tout de suite, puis le corps ne se termine jamais.
     // Comme le vrai fetch, le flux échoue quand le signal est annulé.
     const fetchMock = vi.fn<typeof fetch>(async (_url, init) => {

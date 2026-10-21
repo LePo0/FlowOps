@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { MAX_RUNS_PER_WORKFLOW } from "@flowops/shared";
 import type { WorkflowRepository } from "../workflows/workflow.repository.js";
 import type { RunRepository, StoredRun } from "./run.repository.js";
 
@@ -12,12 +11,12 @@ export function createMemoryRunRepository(workflows: WorkflowRepository): RunRep
     (await workflows.find(userId, workflowId)) !== null;
 
   return {
-    record: async (userId, workflowId, run) => {
+    record: async (userId, workflowId, run, keep) => {
       if (!(await owns(userId, workflowId))) return null;
       const stored: StoredRun = { ...structuredClone(run), id: randomUUID(), workflowId };
       runs.push(stored);
       const kept = runs.filter((r) => r.workflowId === workflowId).sort(newestFirst);
-      for (const old of kept.slice(MAX_RUNS_PER_WORKFLOW)) runs.splice(runs.indexOf(old), 1);
+      for (const old of kept.slice(keep)) runs.splice(runs.indexOf(old), 1);
       return structuredClone(stored);
     },
 
