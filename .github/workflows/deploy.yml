@@ -1,0 +1,85 @@
+name: Déploiement
+
+# Après une CI réussie sur main : migrations, image de l'API sur Cloud Run, éditeur sur Firebase
+# Hosting. Connexion à Google Cloud sans clé (Workload Identity Federation) : seule la branche
+# main de ce dépôt peut prendre l'identité flowops-deployer (deploy/README.md).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Un seul déploiement à la fois ; le suivant attend au lieu d'annuler une migration en cours
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: flowops-prod
+  REGION: europe-west1
+  SERVICE: flowops-api
+  IMAGE: europe-west1-docker.pkg.dev/flowops-prod/flowops/api
+  SITE_URL: https://flowops.vincent-angoulvant.fr
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      # Le commit qui a passé la CI, pas un commit arrivé entre-temps sur main
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/592511140226/locations/global/workloadIdentityPools/github/providers/github
+          service_account: flowops-deployer@flowops-prod.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Image de l'API
+        run: |
+          gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+          docker build -t "$IMAGE:$GITHUB_SHA" .
+          docker push "$IMAGE:$GITHUB_SHA"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      # Connexion directe (sans -pooler) : les migrations Prisma ont besoin d'une vraie session
+      - name: Migrations de la base
+        working-directory: apps/api
+        run: |
+          DATABASE_URL="$(gcloud secrets versions access latest --secret=database-url-direct)"
+          echo "::add-mask::$DATABASE_URL"
+          DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
+
+      # Configuration complète à chaque déploiement : elle est décrite ici, pas dans la console
+      - name: API sur Cloud Run
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image="$IMAGE:$GITHUB_SHA" \
+            --region="$REGION" \
+            --service-account="flowops-api@$PROJECT_ID.iam.gserviceaccount.com" \
+            --set-secrets=DATABASE_URL=database-url:latest \
+            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID,CORS_ORIGIN=$SITE_URL,DEMO_SESSIONS_ENABLED=true,TRUST_PROXY_HOPS=1" \
+            --min-instances=0 --max-instances=2 \
+            --cpu=1 --memory=512Mi --timeout=60 \
+            --quiet
+          curl -fsS "$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')/health"
+
+      - name: Éditeur sur Firebase Hosting
+        run: |
+          npm run build -w web
+          # firebase-tools : celui du projet (dépendance de e2e), identifiants de l'étape auth
+          npx firebase deploy --only hosting --project "$PROJECT_ID" --non-interactive

@@ -169,3 +169,4 @@ docs/         Architecture et roadmap
 
 - [Architecture](docs/architecture.md) : modules, moteur, API, éditeur, persistance, limites et sécurité.
 - [Roadmap](docs/roadmap.md) : ce qui est fait et la suite, dans l'ordre.
+- [Déploiement](deploy/README.md) : production sur Google Cloud et Firebase, déploiement automatique, droits, secrets et coût.
