@@ -20,7 +20,7 @@ flowchart LR
 1. image de l'API construite et poussée dans Artifact Registry, étiquetée par le commit ;
 2. migrations Prisma appliquées à Neon (`prisma migrate deploy`, connexion directe) ;
 3. nouvelle révision Cloud Run, avec toute sa configuration (variables, secret, limites) ; `/health` doit répondre ;
-4. éditeur construit (`apps/web/.env.production`) et publié sur Firebase Hosting ([`firebase.json`](../firebase.json) : réécriture `/api/**` vers Cloud Run, en-têtes de sécurité, cache).
+4. éditeur construit avec la configuration web Firebase (variables GitHub, ci-dessous) et publié sur Firebase Hosting ([`firebase.json`](../firebase.json) : réécriture `/api/**` vers Cloud Run, en-têtes de sécurité, cache).
 
 Aucune clé n'est stockée dans GitHub : le jeton OIDC de GitHub Actions est échangé contre l'identité `flowops-deployer`, et seulement pour la branche `main` de ce dépôt (identifiants numériques du dépôt et du propriétaire, qui ne changent pas si un dépôt du même nom est recréé).
 
@@ -109,7 +109,15 @@ Risque accepté : l'URL directe du service (`…run.app`) contourne Hosting, et 
 
 ## Clé d'API web
 
-`apps/web/.env.production` contient la clé web de Firebase : elle identifie le projet et se lit dans le JavaScript du site, ce n'est pas un secret (l'alerte de GitHub est écartée par `.github/secret_scanning.yml`). Elle est restreinte depuis la console Google Cloud (_API et services > Identifiants_) :
+La configuration web de Firebase n'est pas versionnée (aucun `.env` dans le dépôt). Le déploiement la lit dans les **variables** du dépôt GitHub (_Settings > Secrets and variables > Actions > Variables_) :
+
+| Variable               | Valeur                                                    |
+| ---------------------- | --------------------------------------------------------- |
+| `FIREBASE_WEB_API_KEY` | Clé web de l'application FlowOps du projet `flowops-prod` |
+| `FIREBASE_AUTH_DOMAIN` | `flowops-prod.firebaseapp.com`                            |
+| `FIREBASE_WEB_APP_ID`  | Identifiant de l'application web (`1:592511140226:web:…`) |
+
+Valeurs dans la console Firebase (_Paramètres du projet > Général > Vos applications_). Ce sont des variables et non des secrets : la clé web identifie le projet et se lit dans le JavaScript du site. Elle est restreinte depuis la console Google Cloud (_API et services > Identifiants_) :
 
 - sites : `https://flowops.vincent-angoulvant.fr/*`, `https://flowops-prod.web.app/*`, `https://flowops-prod.firebaseapp.com/*` (page de connexion de Firebase) ;
 - API : `identitytoolkit.googleapis.com` et `securetoken.googleapis.com` (connexion et renouvellement du jeton) seulement.

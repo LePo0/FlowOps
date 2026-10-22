@@ -24,6 +24,10 @@ dist-ssr
 *.sw?
 
 *.env
+# Configuration par environnement : jamais versionnée (en CI : variables GitHub Actions).
+# Seuls les modèles .env.example le sont.
+.env.*
+!.env.example
 
 # Client Prisma généré (npm run db:generate, ou automatiquement à l'installation)
 apps/api/src/generated/
