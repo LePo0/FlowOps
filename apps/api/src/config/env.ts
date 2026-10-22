@@ -26,6 +26,8 @@ const EnvSchema = z.object({
   DEMO_SESSIONS_ENABLED: z.stringbool().default(true),
   // Proxys de confiance devant l'API : 0 en local, 1 derrière Cloud Run (X-Forwarded-For)
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+  // Diagnostic temporaire : journalise les en-têtes d'adresse reçus (réglage de TRUST_PROXY_HOPS)
+  LOG_FORWARDED_FOR: z.stringbool().default(false),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

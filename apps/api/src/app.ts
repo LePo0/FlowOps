@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { authenticate } from "./auth/authenticate.js";
 import type { AuthDeps } from "./auth/identity.js";
 import { env } from "./config/env.js";
+import { logForwardedFor } from "./http/forwarded-for-diagnostic.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRunRouter } from "./modules/run/run.router.js";
 import type { RunRepository } from "./modules/runs/run.repository.js";
@@ -25,6 +26,8 @@ export interface AppDeps {
   trustProxyHops?: number;
   // Horloge des limites d'exécution, remplacée dans les tests
   now?: () => number;
+  // Diagnostic des en-têtes d'adresse (LOG_FORWARDED_FOR)
+  logForwardedFor?: boolean;
 }
 
 export function createApp(deps: AppDeps): Express {
@@ -39,6 +42,8 @@ export function createApp(deps: AppDeps): Express {
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });
+
+  if (deps.logForwardedFor ?? env.LOG_FORWARDED_FOR) app.use("/api", logForwardedFor);
 
   // Avant la lecture du corps : une requête anonyme est refusée sans que son JSON soit analysé
   app.use("/api", authenticate(deps.auth));
