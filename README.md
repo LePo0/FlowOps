@@ -123,17 +123,34 @@ $env:NODE_OPTIONS="--use-system-ca"; npm install
 
 ## Commandes utiles
 
-| Commande                     | Rôle                                                                                 |
-| ---------------------------- | ------------------------------------------------------------------------------------ |
-| `npm test`                   | Tests de tous les paquets (les tests d'intégration utilisent la base `flowops_test`) |
-| `npm run e2e -w e2e`         | Tests de bout en bout (Playwright, émulateur Firebase) : voir ci-dessus              |
-| `npm run typecheck`          | Vérification des types                                                               |
-| `npm run lint`               | ESLint                                                                               |
-| `npm run format:check`       | Vérifie le formatage Prettier (`npm run format` pour corriger)                       |
-| `npm run db:migrate -w api`  | Crée et applique une migration après une modification du schéma Prisma               |
-| `npm run db:generate -w api` | Régénère le client Prisma                                                            |
+| Commande                        | Rôle                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
+| `npm test`                      | Tests de tous les paquets (les tests d'intégration utilisent la base `flowops_test`) |
+| `npm run e2e -w e2e`            | Tests de bout en bout (Playwright, émulateur Firebase) : voir ci-dessus              |
+| `npm run typecheck`             | Vérification des types                                                               |
+| `npm run lint`                  | ESLint                                                                               |
+| `npm run format:check`          | Vérifie le formatage Prettier (`npm run format` pour corriger)                       |
+| `npm run db:migrate -w api`     | Crée et applique une migration après une modification du schéma Prisma               |
+| `npm run db:generate -w api`    | Régénère le client Prisma                                                            |
+| `npm run build -w api`          | Build de production de l'API (`apps/api/dist`), lancé avec `npm run start -w api`    |
+| `docker build -t flowops-api .` | Image Docker de l'API : voir ci-dessous                                              |
 
-La CI GitHub Actions (`.github/workflows/ci.yml`) lance `lint`, `typecheck`, `test`, `format` et `e2e` sur chaque pull request et sur `main`.
+La CI GitHub Actions (`.github/workflows/ci.yml`) lance `lint`, `typecheck`, `test`, `format`, `e2e` et `docker` (image de l'API construite et démarrée) sur chaque pull request et sur `main`.
+
+## Image Docker de l'API
+
+Le [`Dockerfile`](Dockerfile) à la racine construit l'image de l'API, utilisée sur Cloud Run et pour une installation en entreprise :
+
+- esbuild regroupe l'API, `@flowops/shared` et le client Prisma généré dans un seul fichier, lancé par `node` (sans tsx) ;
+- l'image ne contient que les dépendances de production (ni Prisma CLI, ni esbuild, ni outils de test) et tourne sans les droits root ;
+- configuration par variables d'environnement, comme `apps/api/.env.example` ; Cloud Run fournit `PORT` (8080 par défaut).
+
+```bash
+docker build -t flowops-api .
+docker run --rm -p 8080:8080 -e DATABASE_URL=… -e FIREBASE_PROJECT_ID=… flowops-api
+```
+
+Les migrations ne sont pas appliquées par l'image : elles le sont au déploiement (`prisma migrate deploy`). La CI construit l'image et la démarre contre une base jetable à chaque pull request.
 
 ## Structure
 
