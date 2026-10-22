@@ -298,7 +298,7 @@ Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et appliq
 - Tests de bout en bout (`e2e/`) : Playwright pilote l'éditeur dans Chromium contre la vraie API, une base dédiée (`flowops_e2e`) et l'émulateur Firebase Auth. Un service cible local remplace Internet pour le nœud HTTP : il écoute sur une adresse privée de la machine, ouverte par `HTTP_ALLOWED_TARGETS`, puisque la boucle locale reste toujours refusée. Scénarios : inscription et vérification de l'adresse, déconnexion et isolation, exécution nominale, cible refusée, réponse 404, modification puis relance depuis l'historique.
 - CI GitHub Actions : `lint`, `typecheck`, `test`, `format` et `e2e` en parallèle, sur pull requests et sur `main`.
 - Workflow Git : `main` protégé, branches courtes, pull requests avec squash.
-- Déploiement cible (à venir) : Docker, Cloud Run, base managée, frontend sur Firebase Hosting pour le SaaS ; la même image Docker, configurée par variables d'environnement, pour une installation en entreprise.
+- Déploiement cible (à venir, étape 9 de la roadmap) : `flowops.vincent-angoulvant.fr` sur Firebase Hosting, qui réécrit `/api/**` vers l'API sur Cloud Run ; base PostgreSQL Neon (offre gratuite) ; la même image Docker, configurée par variables d'environnement, pour une installation en entreprise.
 
 ## 9. Décisions
 
