@@ -154,7 +154,7 @@ Le visiteur peut transformer sa session en vrai compte (même uid Firebase) : le
 
 #### Limites d'exécution
 
-`POST /api/run` et `POST /api/workflows/:id/runs` passent par `createRunLimits()` (`src/usage/run-limits.ts`) avant toute lecture du graphe : au-delà, `429` `RATE_LIMITED` avec `Retry-After`, sans appeler d'URL. Les compteurs sont en mémoire, par instance : limite approximative, acceptée avec peu d'instances Cloud Run. L'adresse IP est `req.ip`, qui tient compte de `TRUST_PROXY_HOPS` (1 derrière Cloud Run : l'adresse ajoutée par Google à `X-Forwarded-For`, pas celle qu'écrit le client) ; en IPv6, la limite porte sur le /64.
+`POST /api/run` et `POST /api/workflows/:id/runs` passent par `createRunLimits()` (`src/usage/run-limits.ts`) avant toute lecture du graphe : au-delà, `429` `RATE_LIMITED` avec `Retry-After`, sans appeler d'URL. Les compteurs sont en mémoire, par instance : limite approximative, acceptée avec peu d'instances Cloud Run. L'adresse IP est `req.ip`, qui tient compte de `TRUST_PROXY_HOPS` (2 en production, derrière Firebase Hosting puis le répartiteur de Cloud Run : mesure dans `deploy/README.md`) ; en IPv6, la limite porte sur le /64. Toutes les réponses `/api` portent `Cache-Control: no-store` : un cache partagé (CDN de Hosting, proxy) ne peut pas servir les données d'un compte à un autre.
 
 ### `/api/workflows`
 

@@ -72,7 +72,7 @@ jobs:
             --region="$REGION" \
             --service-account="flowops-api@$PROJECT_ID.iam.gserviceaccount.com" \
             --set-secrets=DATABASE_URL=database-url:latest \
-            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID,CORS_ORIGIN=$SITE_URL,DEMO_SESSIONS_ENABLED=true,TRUST_PROXY_HOPS=1" \
+            --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID,CORS_ORIGIN=$SITE_URL,DEMO_SESSIONS_ENABLED=true,TRUST_PROXY_HOPS=2" \
             --min-instances=0 --max-instances=2 \
             --cpu=1 --memory=512Mi --timeout=60 \
             --quiet

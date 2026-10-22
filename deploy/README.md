@@ -102,3 +102,16 @@ gcloud run services update flowops-api --region=europe-west1 --remove-env-vars=L
 ```
 
 La bonne valeur est celle pour laquelle `ip` est l'adresse publique du poste qui a lancé `curl`, y compris avec l'en-tête inventé.
+
+**Mesure du 22 octobre 2026** : derrière Hosting, `X-Forwarded-For` vaut `<visiteur>,<adresse Google de Hosting>` (le répartiteur de Cloud Run ajoute la seconde). Hosting **remplace** l'en-tête envoyé par le client : l'adresse inventée n'apparaît pas. D'où `TRUST_PROXY_HOPS=2`.
+
+Risque accepté : l'URL directe du service (`…run.app`) contourne Hosting, et un client qui l'appelle peut y choisir l'adresse vue par l'API, donc contourner la limite **par adresse**. Restent la limite par compte, les exécutions simultanées, la durée maximale, `max-instances=2` et le plafond de dépenses. Fermer l'URL directe (`--no-default-url`) n'est pas possible : la réécriture Hosting en dépend (essai du 22 octobre : `/api` répond alors 404, et Hosting garde ce 404 en cache 10 minutes).
+
+## Clé d'API web
+
+`apps/web/.env.production` contient la clé web de Firebase : elle identifie le projet et se lit dans le JavaScript du site, ce n'est pas un secret (l'alerte de GitHub est écartée par `.github/secret_scanning.yml`). Elle est restreinte depuis la console Google Cloud (_API et services > Identifiants_) :
+
+- sites : `https://flowops.vincent-angoulvant.fr/*`, `https://flowops-prod.web.app/*`, `https://flowops-prod.firebaseapp.com/*` (page de connexion de Firebase) ;
+- API : `identitytoolkit.googleapis.com` et `securetoken.googleapis.com` (connexion et renouvellement du jeton) seulement.
+
+Vérifié : depuis le site, création d'une session de démo `200` ; depuis un autre site ou sans origine, `403`. La restriction par site se contourne avec un script qui invente l'en-tête `Referer` : elle évite la réutilisation de la clé par un autre site, pas un abus délibéré, que bornent les limites de l'API.

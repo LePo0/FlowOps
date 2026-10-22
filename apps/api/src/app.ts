@@ -43,6 +43,13 @@ export function createApp(deps: AppDeps): Express {
     res.json({ status: "ok" });
   });
 
+  // Réponses propres à chaque compte : jamais gardées par un cache partagé (CDN de Firebase
+  // Hosting, proxy d'entreprise), même si une erreur ou un relais y ajoutait un Cache-Control
+  app.use("/api", (_req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+  });
+
   if (deps.logForwardedFor ?? env.LOG_FORWARDED_FOR) app.use("/api", logForwardedFor);
 
   // Avant la lecture du corps : une requête anonyme est refusée sans que son JSON soit analysé

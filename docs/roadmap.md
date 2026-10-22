@@ -102,13 +102,13 @@ flowchart LR
   V -->|connexion| F["Firebase Auth -prod"]
 ```
 
-- [ ] **Base Neon** (offre gratuite, environ 0,5 Go) : base `flowops`, migrations appliquées au déploiement. Neon se met en veille sans trafic et redémarre seul à la requête suivante (Supabase écarté : un projet gratuit inactif 7 jours est mis en pause jusqu'à une action manuelle)
+- [x] **Base Neon** (offre gratuite, environ 0,5 Go) : base `flowops`, migrations appliquées au déploiement. Neon se met en veille sans trafic et redémarre seul à la requête suivante (Supabase écarté : un projet gratuit inactif 7 jours est mis en pause jusqu'à une action manuelle)
 - [x] **Dockerfile de l'API** : image multi-étapes, utilisateur non root, client Prisma généré au build ; la même image sert l'installation en entreprise
-- [ ] **Cloud Run** (projet Firebase `-prod` en plan Blaze) : `min-instances=0`, `max-instances=2`, secrets (`DATABASE_URL`) dans Secret Manager, `DEMO_SESSIONS_ENABLED`, `TRUST_PROXY_HOPS` **mesuré** derrière la réécriture Hosting (relais supplémentaire possible)
+- [x] **Cloud Run** (projet Firebase `-prod` en plan Blaze) : `min-instances=0`, `max-instances=2`, secrets (`DATABASE_URL`) dans Secret Manager, `DEMO_SESSIONS_ENABLED`, `TRUST_PROXY_HOPS=2` **mesuré** derrière la réécriture Hosting
 - [ ] **Firebase Hosting** : build de l'éditeur, réécriture `/api/**` vers Cloud Run, domaine `flowops.vincent-angoulvant.fr` (enregistrements DNS chez le registraire, certificat géré par Firebase)
 - [ ] **Firebase Auth `-prod`** : Google, email/mot de passe et anonyme activés ; domaines autorisés limités à `flowops.vincent-angoulvant.fr` ; `authDomain` sur ce domaine (la fenêtre Google l'affiche au lieu de `firebaseapp.com`) ; clé d'API restreinte par référent
 - [ ] **Garde-fous de coût** : plafond de dépenses natif à 1 € (spend cap, en preview : vérifier que Cloud Run est couvert ; sinon coupure de la facturation par Pub/Sub à 2 €), alerte email dès 0,10 €, suppression automatique des anciennes images (Artifact Registry). Un plafond atteint coupe le site jusqu'à une relance manuelle
-- [ ] **Déploiement par GitHub Actions** sur `main`, après la CI : Workload Identity Federation (pas de clé statique), migrations Prisma, image, Cloud Run, puis Hosting
+- [x] **Déploiement par GitHub Actions** sur `main`, après la CI : Workload Identity Federation (pas de clé statique), migrations Prisma, image, Cloud Run, puis Hosting
 - [ ] **Vérification en ligne** : session de démo, création de compte, exécution, limites (`429`), cible interdite, en-têtes de sécurité
 - [ ] Installation en entreprise : image Docker de l'API et de l'éditeur configurable par variables d'environnement (politique réseau, projet Firebase, base), documentée
 
