@@ -53,12 +53,20 @@ export async function openVerificationLink(email: string): Promise<void> {
   if (!response.ok) throw new Error(`Lien de vérification refusé : ${response.status}`);
 }
 
-// Sans recharger la page si elle est déjà ouverte (après une déconnexion, par exemple)
+// Sans compte, le visiteur arrive dans une session de démo
+export async function expectDemoSession(page: Page): Promise<void> {
+  await expect(page.locator(".user-menu__email")).toHaveText("Session de démo");
+}
+
+// Depuis la session de démo, par le bouton de l'en-tête. Sans recharger la page si elle est
+// déjà ouverte (après une déconnexion, par exemple)
 export async function signIn(page: Page, account: Account): Promise<void> {
   if (page.url() === "about:blank") await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Connexion" })).toBeVisible();
-  await page.getByLabel("Email").fill(account.email);
-  await page.getByLabel("Mot de passe").fill(account.password);
+  await expectDemoSession(page);
   await page.getByRole("button", { name: "Se connecter" }).click();
-  await expect(page.getByRole("button", { name: "Exécuter" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Connexion" });
+  await dialog.getByLabel("Email").fill(account.email);
+  await dialog.getByLabel("Mot de passe").fill(account.password);
+  await dialog.getByRole("button", { name: "Se connecter" }).click();
+  await expect(page.locator(".user-menu__email")).toHaveText(account.email);
 }

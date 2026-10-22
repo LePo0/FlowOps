@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useAuthStore } from "../auth/session.ts";
 import { HistoryDialog } from "../history/HistoryDialog.tsx";
 import { UNTITLED } from "./document-store.ts";
 import { OpenDialog } from "./OpenDialog.tsx";
@@ -25,9 +26,13 @@ export function DocumentBar() {
   const [openDialog, setOpenDialog] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Au chargement de la page : rouvre le dernier workflow ouvert
+  // Au chargement de la page : rouvre le dernier workflow ouvert. Une session de démo neuve
+  // ouvre le premier exemple, pour que le visiteur ait tout de suite un workflow enregistré.
   useEffect(() => {
-    void useDocumentStore.getState().restoreLast();
+    void (async () => {
+      await useDocumentStore.getState().restoreLast();
+      if (useAuthStore.getState().status === "demo") await useDocumentStore.getState().openFirst();
+    })();
   }, []);
 
   // Ctrl+S (ou Cmd+S) enregistre au lieu d'enregistrer la page HTML

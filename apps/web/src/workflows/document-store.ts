@@ -32,12 +32,18 @@ export interface DocumentState {
   open: (id: string) => Promise<boolean>;
   newDocument: (graph: WorkflowGraph) => void;
   restoreLast: () => Promise<void>;
+  // Session de démo sans workflow ouvert : ouvre le premier par ordre alphabétique (Exemple 1)
+  openFirst: () => Promise<void>;
   // Le workflow a été supprimé côté serveur : s'il est ouvert, il redevient non enregistré
   forget: (id: string) => void;
 }
 
 export function createDocumentStore(deps: DocumentDeps) {
   return create<DocumentState>()((set, get) => {
+    // Incrémenté par newDocument : un chargement commencé avant (compte précédent) est ignoré
+    let generation = 0;
+    const isDirty = () => documentSnapshot(get().name, deps.getGraph()) !== get().savedSnapshot;
+
     // Après chargement, l'empreinte est calculée sur le graphe tel que l'éditeur le restitue
     const loaded = (id: string | null, name: string) => {
       deps.onDocumentChanged();
@@ -96,7 +102,12 @@ export function createDocumentStore(deps: DocumentDeps) {
       open: async (id) => {
         if (get().busy) return false;
         set({ busy: "loading", error: null });
+        const started = generation;
         const result = await deps.api.get(id);
+        if (started !== generation) {
+          set({ busy: null });
+          return false;
+        }
         if (!result.ok) {
           set({ busy: null, error: `Ouverture impossible : ${result.message}` });
           return false;
@@ -107,6 +118,7 @@ export function createDocumentStore(deps: DocumentDeps) {
       },
 
       newDocument: (graph) => {
+        generation++;
         deps.loadGraph(graph);
         loaded(null, "");
       },
@@ -116,6 +128,15 @@ export function createDocumentStore(deps: DocumentDeps) {
         if (id === null) return;
         // Introuvable (supprimé entre-temps) : on oublie l'identifiant, sans bloquer l'éditeur
         if (!(await get().open(id))) deps.lastOpened.set(null);
+      },
+
+      openFirst: async () => {
+        if (get().id !== null || get().busy) return;
+        const started = generation;
+        const result = await deps.api.list();
+        if (!result.ok || started !== generation || get().id !== null || isDirty()) return;
+        const [first] = result.data.toSorted((a, b) => a.name.localeCompare(b.name, "fr"));
+        if (first) await get().open(first.id);
       },
 
       forget: (id) => {

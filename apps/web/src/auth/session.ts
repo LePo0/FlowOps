@@ -37,5 +37,8 @@ export const useAuthStore = createAuthStore(authClient);
 // fetch de tous les appels à l'API
 export const authFetch = createAuthFetch(
   () => (authConfigured ? authClient().getToken() : Promise.resolve(null)),
-  () => void useAuthStore.getState().sessionRejected(),
+  {
+    onUnauthorized: () => void useAuthStore.getState().sessionRejected(),
+    onDemoRefused: () => void useAuthStore.getState().demoRefused(),
+  },
 );

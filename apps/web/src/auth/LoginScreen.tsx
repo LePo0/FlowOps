@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { AuthCard } from "./AuthCard.tsx";
+import type { LoginMode } from "./auth-store.ts";
 import { useAuthStore } from "./session.ts";
 
-type Mode = "signIn" | "signUp" | "reset";
+type Mode = LoginMode | "reset";
 
 const TITLES: Record<Mode, string> = {
   signIn: "Connexion",
@@ -15,8 +16,22 @@ const SUBMIT: Record<Mode, string> = {
   reset: "Envoyer le lien",
 };
 
-export function LoginScreen() {
-  const [mode, setMode] = useState<Mode>("signIn");
+// Ce que devient la session de démo, selon le choix du visiteur (docs/security/demo-sessions.md, U1 et U3)
+const DEMO_NOTES: Record<LoginMode, string> = {
+  signUp: "Vos workflows de la session de démo seront gardés dans ce nouveau compte.",
+  signIn:
+    "En vous connectant à un compte existant, vous quittez la session de démo : ses workflows ne sont pas repris.",
+};
+
+// onClose : écran ouvert depuis une session de démo, par-dessus l'éditeur
+export function LoginScreen({
+  initialMode = "signIn",
+  onClose,
+}: {
+  initialMode?: LoginMode;
+  onClose?: () => void;
+}) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const busy = useAuthStore((state) => state.busy);
@@ -35,7 +50,8 @@ export function LoginScreen() {
   };
 
   return (
-    <AuthCard title={TITLES[mode]}>
+    <AuthCard title={TITLES[mode]} onClose={onClose}>
+      {onClose && mode !== "reset" && <p className="auth__note">{DEMO_NOTES[mode]}</p>}
       {mode !== "reset" && (
         <>
           <button

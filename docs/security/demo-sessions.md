@@ -112,7 +112,26 @@ Les valeurs sont dans `apps/api/src/usage/plans.ts`.
 
 ## Résultats de la vérification finale
 
-_À venir._
+_22 octobre 2026, branches `feat/demo-sessions-api` et `feat/demo-sessions-web`._
+
+Écart avec la méthode prévue : les tests ont été écrits en même temps que le code, et non avant. Ils n'ont donc pas été vus en échec sur le code d'avant.
+
+| Fichier                                             | Scénarios                                        |
+| --------------------------------------------------- | ------------------------------------------------ |
+| `apps/api/src/auth/firebase-token-verifier.test.ts` | A2, A3 (jetons signés et jetons de l'émulateur)  |
+| `apps/api/src/demo-sessions.test.ts`                | A2, A4, A5, Q1 à Q8                              |
+| `apps/api/src/auth/prisma-user-directory.test.ts`   | E1, E2, U1, N4 (base réelle)                     |
+| `apps/api/src/demo/cleanup.test.ts`                 | N1, N2 (base réelle), planification du nettoyage |
+| `apps/api/src/usage/limiters.test.ts`               | Q1 à Q3, Q7, Q8 (fenêtre, simultanéité, IPv6)    |
+| `apps/api/src/demo/examples.test.ts`                | Exemples valides                                 |
+| `apps/web/src/auth/auth-store.test.ts`              | A1, A4, U1, U3, U4                               |
+| `apps/web/src/auth/auth-fetch.test.ts`              | A4 (refus de l'API détecté par l'éditeur)        |
+| `apps/web/src/workflows/document-store.test.ts`     | Premier exemple ouvert, chargement périmé ignoré |
+| `e2e/tests/demo.spec.ts`                            | A1, A6, U1, retour à la démo sans perte          |
+
+Les trois exemples ont été exécutés sur les vraies API publiques avec les limites d'une session de démo : le premier et le deuxième réussissent, le troisième échoue sur « La référence product.body.categorie est vide », comme prévu.
+
+Non vérifiés automatiquement : U2 (même mécanisme que l'inscription, couvert par `auth.spec.ts`), U3 avec un vrai compte Google (l'émulateur ne simule pas la fenêtre Google), X3 (réglage de la console Firebase, étape de déploiement).
 
 ## Risques acceptés
 
