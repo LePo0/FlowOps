@@ -20,7 +20,7 @@ flowchart LR
 1. image de l'API construite et poussée dans Artifact Registry, étiquetée par le commit ;
 2. migrations Prisma appliquées à Neon (`prisma migrate deploy`, connexion directe) ;
 3. nouvelle révision Cloud Run, avec toute sa configuration (variables, secret, limites) ; `/health` doit répondre ;
-4. éditeur construit (`apps/web/.env.production`) et publié sur Firebase Hosting ([`firebase.json`](../firebase.json) : réécriture `/api/**` vers Cloud Run, en-têtes de sécurité, cache).
+4. éditeur construit avec la configuration web Firebase (variables GitHub, ci-dessous) et publié sur Firebase Hosting ([`firebase.json`](../firebase.json) : réécriture `/api/**` vers Cloud Run, en-têtes de sécurité, cache).
 
 Aucune clé n'est stockée dans GitHub : le jeton OIDC de GitHub Actions est échangé contre l'identité `flowops-deployer`, et seulement pour la branche `main` de ce dépôt (identifiants numériques du dépôt et du propriétaire, qui ne changent pas si un dépôt du même nom est recréé).
 
@@ -102,3 +102,24 @@ gcloud run services update flowops-api --region=europe-west1 --remove-env-vars=L
 ```
 
 La bonne valeur est celle pour laquelle `ip` est l'adresse publique du poste qui a lancé `curl`, y compris avec l'en-tête inventé.
+
+**Mesure du 22 octobre 2026** : derrière Hosting, `X-Forwarded-For` vaut `<visiteur>,<adresse Google de Hosting>` (le répartiteur de Cloud Run ajoute la seconde). Hosting **remplace** l'en-tête envoyé par le client : l'adresse inventée n'apparaît pas. D'où `TRUST_PROXY_HOPS=2`.
+
+Risque accepté : l'URL directe du service (`…run.app`) contourne Hosting, et un client qui l'appelle peut y choisir l'adresse vue par l'API, donc contourner la limite **par adresse**. Restent la limite par compte, les exécutions simultanées, la durée maximale, `max-instances=2` et le plafond de dépenses. Fermer l'URL directe (`--no-default-url`) n'est pas possible : la réécriture Hosting en dépend (essai du 22 octobre : `/api` répond alors 404, et Hosting garde ce 404 en cache 10 minutes).
+
+## Clé d'API web
+
+La configuration web de Firebase n'est pas versionnée (aucun `.env` dans le dépôt). Le déploiement la lit dans les **variables** du dépôt GitHub (_Settings > Secrets and variables > Actions > Variables_) :
+
+| Variable               | Valeur                                                    |
+| ---------------------- | --------------------------------------------------------- |
+| `FIREBASE_WEB_API_KEY` | Clé web de l'application FlowOps du projet `flowops-prod` |
+| `FIREBASE_AUTH_DOMAIN` | `flowops-prod.firebaseapp.com`                            |
+| `FIREBASE_WEB_APP_ID`  | Identifiant de l'application web (`1:592511140226:web:…`) |
+
+Valeurs dans la console Firebase (_Paramètres du projet > Général > Vos applications_). Ce sont des variables et non des secrets : la clé web identifie le projet et se lit dans le JavaScript du site. Elle est restreinte depuis la console Google Cloud (_API et services > Identifiants_) :
+
+- sites : `https://flowops.vincent-angoulvant.fr/*`, `https://flowops-prod.web.app/*`, `https://flowops-prod.firebaseapp.com/*` (page de connexion de Firebase) ;
+- API : `identitytoolkit.googleapis.com` et `securetoken.googleapis.com` (connexion et renouvellement du jeton) seulement.
+
+Vérifié : depuis le site, création d'une session de démo `200` ; depuis un autre site ou sans origine, `403`. La restriction par site se contourne avec un script qui invente l'en-tête `Referer` : elle évite la réutilisation de la clé par un autre site, pas un abus délibéré, que bornent les limites de l'API.

@@ -24,7 +24,8 @@ const EnvSchema = z.object({
   // Sessions de démo (docs/security/demo-sessions.md) : false refuse les jetons anonymes, sans
   // redéployer de code, si un abus est constaté
   DEMO_SESSIONS_ENABLED: z.stringbool().default(true),
-  // Proxys de confiance devant l'API : 0 en local, 1 derrière Cloud Run (X-Forwarded-For)
+  // Proxys de confiance devant l'API : 0 en local, 2 derrière Firebase Hosting et Cloud Run
+  // (mesure : deploy/README.md)
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
   // Diagnostic temporaire : journalise les en-têtes d'adresse reçus (réglage de TRUST_PROXY_HOPS)
   LOG_FORWARDED_FOR: z.stringbool().default(false),

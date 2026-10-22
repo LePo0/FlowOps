@@ -130,3 +130,15 @@ describe("diagnostic des en-têtes d'adresse", () => {
     log.mockRestore();
   });
 });
+
+describe("cache des réponses /api", () => {
+  it("interdit toute mise en cache, y compris pour un refus", async () => {
+    const app = appWith();
+
+    const refused = await request(app).get("/api/workflows");
+    const allowed = await request(app).get("/api/workflows").auth(ALICE, { type: "bearer" });
+
+    expect(refused.headers["cache-control"]).toBe("no-store");
+    expect(allowed.headers["cache-control"]).toBe("no-store");
+  });
+});

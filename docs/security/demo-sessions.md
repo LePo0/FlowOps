@@ -138,6 +138,7 @@ Non vérifiés automatiquement : U2 (même mécanisme que l'inscription, couvert
 - **Comptes anonymes Firebase conservés** : le nettoyage ne supprime que les données de FlowOps. Un compte anonyme Firebase ne contient rien, et le supprimer demanderait des identifiants d'administration Firebase sur l'API. Si leur nombre devient gênant, Identity Platform sait supprimer automatiquement les comptes anonymes anciens.
 - **Place libérée par un client qui abandonne** : la limite d'exécutions simultanées se libère quand la connexion se ferme, même si l'exécution continue jusqu'à son échéance. La limite par minute borne ce cas.
 
+- **Adresse choisie par le client sur l'URL directe** : derrière Hosting, l'adresse du visiteur est fiable (Hosting remplace `X-Forwarded-For`, `TRUST_PROXY_HOPS=2`) ; l'URL `…run.app` du service, indispensable à Hosting, laisse un client y inventer son adresse. La limite par compte et les plafonds globaux s'appliquent quand même (`deploy/README.md`).
 - **Limite par IP contournable** par un attaquant qui dispose de nombreuses adresses : le plafond global et le budget bornent alors le coût.
 - **Firebase** : la création de comptes anonymes est limitée par Firebase lui-même, selon des quotas qui ne dépendent pas de FlowOps. Le plan de facturation (Identity Platform ou non) est à vérifier avant la mise en ligne.
 - **API publiques des exemples** : beaucoup de visiteurs à la fois partagent les mêmes adresses Cloud Run, et un service tiers peut limiter ces adresses. L'exemple échoue alors proprement (E3).
