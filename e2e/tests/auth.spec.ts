@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   createVerifiedAccount,
+  expectDemoSession,
   newAccount,
   openVerificationLink,
   signIn,
@@ -13,6 +14,7 @@ test("inscription : l'adresse doit être vérifiée avant d'accéder à l'édite
 
   await page.goto("/");
   await page.getByRole("button", { name: "Créer un compte" }).click();
+  await expect(page.getByRole("dialog", { name: "Créer un compte" })).toBeVisible();
   await page.getByLabel("Email").fill(account.email);
   await page.getByLabel("Mot de passe").fill(account.password);
   await page.getByRole("button", { name: "Créer le compte" }).click();
@@ -42,12 +44,14 @@ test("déconnexion : rien du compte ne reste, et un autre compte ne voit pas ses
   await setHttpUrl(page, "http1", `${TARGET_URL}/alice`);
   await save(page, "Workflow d'Alice");
   await page.getByRole("button", { name: "Se déconnecter" }).click();
-  await expect(page.getByRole("heading", { name: "Connexion" })).toBeVisible();
+  // Nouvelle session de démo, sans rien d'Alice
+  await expectDemoSession(page);
+  await expect(page.getByText(`${TARGET_URL}/alice`)).toBeHidden();
 
   await signIn(page, bob);
-  // Workflow vierge (un déclencheur seul) : ni le nom ni le graphe d'Alice
+  // Graphe de départ, non enregistré : ni le nom ni le graphe d'Alice, ni l'exemple de la démo
   await expect(page.getByLabel("Nom du workflow")).toHaveValue("");
-  await expect(page.locator(".react-flow__node")).toHaveCount(1);
+  await expect(page.locator(".document-bar__status")).toHaveText("Non enregistré");
   await expect(page.getByText(`${TARGET_URL}/alice`)).toBeHidden();
 
   // Même après rechargement : le dernier workflow d'Alice n'est pas rouvert pour Bob

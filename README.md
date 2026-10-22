@@ -20,6 +20,7 @@ Si l'API affiche « Base de données injoignable », c'est que la base n'a pas �
 
 ## Fonctionnalités
 
+- **Session de démo** : sans compte, le visiteur arrive directement dans l'éditeur, avec trois workflows d'exemple enregistrés (historique et relance compris). Quotas réduits, session supprimée après 7 jours sans visite ; il peut la transformer en vrai compte sans perdre ses workflows.
 - **Comptes** (Firebase Authentication) : connexion Google ou email/mot de passe, inscription avec vérification de l'adresse, mot de passe oublié. Chaque utilisateur ne voit que ses workflows et ses exécutions.
 - **Canvas** (React Flow) : ajout, connexion et configuration des nœuds ; les connexions impossibles (cycle, arête vers le déclencheur…) sont refusées pendant le tracé.
 - **Nœuds** :
@@ -63,7 +64,7 @@ FlowOps utilise deux projets Firebase : `flowops-dev-…` en local, `flowops-pro
 
 Dans la [console Firebase](https://console.firebase.google.com/), pour chaque projet :
 
-1. **Authentication > Sign-in method** : activer **Google** (avec une adresse email d'assistance) et **Adresse e-mail/Mot de passe**.
+1. **Authentication > Sign-in method** : activer **Google** (avec une adresse email d'assistance), **Adresse e-mail/Mot de passe** et **Anonyme** (sessions de démo). Sans le fournisseur anonyme, l'éditeur affiche directement l'écran de connexion.
 2. **Authentication > Paramètres > Domaines autorisés** : `localhost` pour le projet de développement, le domaine de l'éditeur pour la production.
 3. **Paramètres du projet > Général > Vos applications** : ajouter une application web, puis recopier sa configuration dans `apps/web/.env.local` (ignoré par Git) :
 
@@ -93,7 +94,7 @@ Les comptes email/mot de passe doivent vérifier leur adresse avant d'accéder �
 
 ### Tests de bout en bout
 
-Playwright pilote l'éditeur dans Chromium, contre la vraie API, une base PostgreSQL et l'**émulateur Firebase Auth** (comptes en mémoire, liens de vérification lus sans boîte mail). Scénarios : inscription et vérification de l'adresse, déconnexion et isolation des comptes, exécution nominale, cible refusée, réponse 404, modification d'un workflow puis relance depuis l'historique.
+Playwright pilote l'éditeur dans Chromium, contre la vraie API, une base PostgreSQL et l'**émulateur Firebase Auth** (comptes en mémoire, liens de vérification lus sans boîte mail). Scénarios : session de démo (exemples, rechargement, passage à un vrai compte, retour à la démo), inscription et vérification de l'adresse, déconnexion et isolation des comptes, exécution nominale, cible refusée, réponse 404, modification d'un workflow puis relance depuis l'historique.
 
 Une fois :
 

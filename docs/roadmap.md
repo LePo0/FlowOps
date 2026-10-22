@@ -81,14 +81,14 @@ FlowOps doit pouvoir être proposé en SaaS public **et** installé dans une ent
 
 FlowOps doit être testable sans compte, historique et relance compris : chaque visiteur reçoit une session de démo privée (compte anonyme Firebase), préremplie d'exemples. Tout le monde pouvant alors obtenir un jeton, les limites d'usage deviennent indispensables. Scénarios, seuils et options écartées : [`docs/security/demo-sessions.md`](security/demo-sessions.md).
 
-- [ ] Scénarios de sécurité rédigés avant le développement
+- [x] Scénarios de sécurité rédigés avant le développement
 - [x] **Limite d'exécutions, prérequis avant la mise en ligne** : par compte (10/min en démo, 30/min vérifié), par IP (ou /64 en IPv6) pour les sessions de démo, exécutions simultanées, `429` au-delà ; compteur en mémoire, Cloud Run limité à peu d'instances
 - [x] API : jetons anonymes acceptés (`sign_in_provider` = `anonymous`), `User.isAnonymous` et `lastSeenAt`, interrupteur `DEMO_SESSIONS_ENABLED`, `TRUST_PROXY_HOPS`
 - [x] Quotas des sessions de démo : durée d'exécution, taille des réponses, workflows enregistrés, exécutions conservées, taille des résultats conservés
 - [x] Trois workflows d'exemple créés avec la session (succès, références entre nœuds, erreur à corriger)
 - [x] Nettoyage des sessions inactives depuis 7 jours, dans le processus de l'API (au démarrage puis toutes les heures)
-- [ ] Éditeur : session de démo ouverte sans clic, bandeau, passage à un vrai compte (`linkWithCredential`), connexion depuis le menu
-- [ ] Scénarios traduits en tests automatisés, puis vérification finale avec l'émulateur Firebase Auth
+- [x] Éditeur : session de démo ouverte sans clic avec le premier exemple, bandeau, passage à un vrai compte (liaison Google ou email/mot de passe), connexion dans une fenêtre par-dessus l'éditeur
+- [x] Scénarios traduits en tests automatisés, dont les parcours de bout en bout avec l'émulateur Firebase Auth
 
 ### 9. Déploiement
 

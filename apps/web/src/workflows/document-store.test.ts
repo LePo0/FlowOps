@@ -169,4 +169,56 @@ describe("useDocumentStore", () => {
     expect(ctx.lastOpened()).toBeNull();
     expect(ctx.isDirty()).toBe(true);
   });
+
+  describe("session de démo", () => {
+    const summary = (id: string, name: string) => ({
+      id,
+      name,
+      createdAt: "2026-10-21T08:00:00.000Z",
+      updatedAt: "2026-10-21T08:00:00.000Z",
+    });
+
+    it("ouvre le premier workflow par ordre alphabétique", async () => {
+      const list = vi.fn(async () =>
+        ok([summary("b", "Exemple 2 — Pokémon"), summary("a", "Exemple 1 — Produits")]),
+      );
+      const demo = setup({ list });
+
+      await demo.store.getState().openFirst();
+
+      expect(demo.deps.api.get).toHaveBeenCalledWith("a");
+      expect(demo.store.getState().id).toBe(ID);
+    });
+
+    it("ne fait rien si un workflow est déjà ouvert, modifié, ou s'il n'y en a aucun", async () => {
+      const list = vi.fn(async () => ok([summary("a", "Exemple 1")]));
+      const opened = setup({ list });
+      await opened.store.getState().open(ID);
+      await opened.store.getState().openFirst();
+      expect(list).not.toHaveBeenCalled();
+
+      const edited = setup({ list });
+      edited.rename("http1", "Modifié pendant le chargement");
+      await edited.store.getState().openFirst();
+      expect(edited.deps.api.get).not.toHaveBeenCalled();
+
+      const empty = setup({ list: vi.fn(async () => ok([])) });
+      await empty.store.getState().openFirst();
+      expect(empty.deps.api.get).not.toHaveBeenCalled();
+    });
+
+    it("ignore un chargement commencé avant un changement de compte", async () => {
+      let answer!: (result: ApiResult<WorkflowDetail>) => void;
+      const slow = setup({
+        get: vi.fn(() => new Promise<ApiResult<WorkflowDetail>>((resolve) => (answer = resolve))),
+      });
+
+      const opening = slow.store.getState().open(ID);
+      slow.store.getState().newDocument(sampleWorkflow);
+      answer(ok(detail("Workflow du compte précédent", sampleWorkflow)));
+
+      expect(await opening).toBe(false);
+      expect(slow.store.getState()).toMatchObject({ id: null, name: "", busy: null, error: null });
+    });
+  });
 });

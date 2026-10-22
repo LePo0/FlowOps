@@ -6,7 +6,11 @@ const respond = (status: number) => vi.fn<typeof fetch>(async () => new Response
 describe("createAuthFetch", () => {
   it("ajoute le jeton sans perdre les en-têtes de l'appel", async () => {
     const fetchMock = respond(200);
-    const authFetch = createAuthFetch(async () => "jeton-123", vi.fn(), fetchMock);
+    const authFetch = createAuthFetch(
+      async () => "jeton-123",
+      { onUnauthorized: vi.fn() },
+      fetchMock,
+    );
 
     await authFetch("/api/workflows", {
       method: "POST",
@@ -22,7 +26,11 @@ describe("createAuthFetch", () => {
   it("n'envoie pas d'en-tête Authorization sans utilisateur connecté", async () => {
     const fetchMock = respond(200);
 
-    await createAuthFetch(async () => null, vi.fn(), fetchMock)("/api/workflows");
+    await createAuthFetch(
+      async () => null,
+      { onUnauthorized: vi.fn() },
+      fetchMock,
+    )("/api/workflows");
 
     expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).has("Authorization")).toBe(false);
   });
@@ -30,7 +38,11 @@ describe("createAuthFetch", () => {
   it("signale un 401 et renvoie quand même la réponse à l'appelant", async () => {
     const onUnauthorized = vi.fn();
 
-    const response = await createAuthFetch(async () => "x", onUnauthorized, respond(401))("/api");
+    const response = await createAuthFetch(
+      async () => "x",
+      { onUnauthorized },
+      respond(401),
+    )("/api");
 
     expect(onUnauthorized).toHaveBeenCalledOnce();
     expect(response.status).toBe(401);
@@ -40,9 +52,39 @@ describe("createAuthFetch", () => {
     const onUnauthorized = vi.fn();
 
     for (const status of [403, 404, 500]) {
-      await createAuthFetch(async () => "x", onUnauthorized, respond(status))("/api");
+      await createAuthFetch(async () => "x", { onUnauthorized }, respond(status))("/api");
     }
 
     expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it("signale le refus des sessions de démo, et laisse le corps lisible", async () => {
+    const onDemoRefused = vi.fn();
+    const body = { errors: [{ code: "DEMO_SESSIONS_DISABLED", message: "Suspendues" }] };
+    const fetchMock = vi.fn<typeof fetch>(
+      async () => new Response(JSON.stringify(body), { status: 403 }),
+    );
+
+    const response = await createAuthFetch(
+      async () => "x",
+      { onUnauthorized: vi.fn(), onDemoRefused },
+      fetchMock,
+    )("/api");
+
+    expect(onDemoRefused).toHaveBeenCalledOnce();
+    expect(await response.json()).toEqual(body);
+  });
+
+  it("ne prend pas un autre 403 pour un refus des sessions de démo", async () => {
+    const onDemoRefused = vi.fn();
+    const body = { errors: [{ code: "QUOTA_EXCEEDED", message: "Trop de workflows" }] };
+
+    await createAuthFetch(
+      async () => "x",
+      { onUnauthorized: vi.fn(), onDemoRefused },
+      vi.fn<typeof fetch>(async () => new Response(JSON.stringify(body), { status: 403 })),
+    )("/api");
+
+    expect(onDemoRefused).not.toHaveBeenCalled();
   });
 });
