@@ -1,0 +1,12 @@
+[
+  {
+    "name": "garder-les-3-dernieres",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": { "keepCount": 3 }
+  },
+  {
+    "name": "supprimer-le-reste",
+    "action": { "type": "Delete" },
+    "condition": { "tagState": "any", "olderThan": "1d" }
+  }
+]
