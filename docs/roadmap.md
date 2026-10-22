@@ -103,7 +103,7 @@ flowchart LR
 ```
 
 - [ ] **Base Neon** (offre gratuite, environ 0,5 Go) : base `flowops`, migrations appliquées au déploiement. Neon se met en veille sans trafic et redémarre seul à la requête suivante (Supabase écarté : un projet gratuit inactif 7 jours est mis en pause jusqu'à une action manuelle)
-- [ ] **Dockerfile de l'API** : image multi-étapes, utilisateur non root, client Prisma généré au build ; la même image sert l'installation en entreprise
+- [x] **Dockerfile de l'API** : image multi-étapes, utilisateur non root, client Prisma généré au build ; la même image sert l'installation en entreprise
 - [ ] **Cloud Run** (projet Firebase `-prod` en plan Blaze) : `min-instances=0`, `max-instances=2`, secrets (`DATABASE_URL`) dans Secret Manager, `DEMO_SESSIONS_ENABLED`, `TRUST_PROXY_HOPS` **mesuré** derrière la réécriture Hosting (relais supplémentaire possible)
 - [ ] **Firebase Hosting** : build de l'éditeur, réécriture `/api/**` vers Cloud Run, domaine `flowops.vincent-angoulvant.fr` (enregistrements DNS chez le registraire, certificat géré par Firebase)
 - [ ] **Firebase Auth `-prod`** : Google, email/mot de passe et anonyme activés ; domaines autorisés limités à `flowops.vincent-angoulvant.fr` ; `authDomain` sur ce domaine (la fenêtre Google l'affiche au lieu de `firebaseapp.com`) ; clé d'API restreinte par référent

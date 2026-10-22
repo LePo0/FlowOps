@@ -1,0 +1,13 @@
+# Contexte de l'image de l'API : uniquement ce que le Dockerfile copie
+**/node_modules
+**/dist
+**/.env
+**/*.local
+apps/api/src/generated
+apps/web
+e2e
+docs
+scripts
+.git
+.github
+*.md

@@ -120,3 +120,43 @@ jobs:
           name: playwright-report
           path: e2e/playwright-report
           retention-days: 7
+
+  # Image de l'API (Dockerfile) : construite, puis lancée contre une base jetable
+  docker:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: flowops
+          POSTGRES_USER: flowops
+          POSTGRES_PASSWORD: flowops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowops -d flowops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t flowops-api .
+      - name: Taille de l'image
+        run: docker image ls flowops-api --format "{{.Size}}"
+      - name: Démarrage de l'image
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL=postgresql://flowops:flowops@localhost:5432/flowops \
+            -e FIREBASE_PROJECT_ID=flowops-ci \
+            flowops-api
+          for attempt in $(seq 1 30); do
+            curl -fsS http://localhost:8080/health && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8080/health
+          # Sans jeton : 401, comme en local
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/workflows)" = 401
+          # Le processus ne tourne pas en root
+          test "$(docker exec api id -u)" != 0
+      - if: always()
+        run: docker logs api
