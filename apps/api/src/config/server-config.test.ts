@@ -13,6 +13,7 @@ const complete: Env = {
   HTTP_DENIED_TARGETS: "",
   DEMO_SESSIONS_ENABLED: true,
   TRUST_PROXY_HOPS: 0,
+  LOG_FORWARDED_FOR: false,
 };
 
 function refusal(env: Env): string {

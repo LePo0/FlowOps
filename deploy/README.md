@@ -83,3 +83,22 @@ puis désactiver l'ancienne version (`gcloud secrets versions disable <n> --secr
 ## Coût
 
 Plafonds de dépenses du projet (console Facturation) : Cloud Run 1 €, Cloud Run Functions 1 €, API Gemini et Agent Platform 0 €. Un plafond atteint coupe le service jusqu'à une relance manuelle. Hors plafond, mais à quelques centimes au plus : Artifact Registry (3 images gardées) et Secret Manager. Neon : offre gratuite.
+
+## Adresse du visiteur (`TRUST_PROXY_HOPS`)
+
+Les limites des sessions de démo comptent les exécutions par adresse IP. Derrière Hosting, la requête traverse au moins deux relais avant l'API : Hosting, puis le répartiteur de Cloud Run, qui voit l'adresse de Hosting (une adresse Google) et non celle du visiteur. `TRUST_PROXY_HOPS` dit à Express combien d'adresses de droite de `X-Forwarded-For` viennent de relais de confiance ; une valeur trop basse ferait partager une seule limite à tous les visiteurs, une valeur trop haute laisserait un client choisir son adresse.
+
+Mesure, à refaire si l'hébergement change :
+
+```bash
+# Diagnostic activé sur une nouvelle révision (le prochain déploiement l'enlève)
+gcloud run services update flowops-api --region=europe-west1 --update-env-vars=LOG_FORWARDED_FOR=true
+# Requêtes passées par Hosting, dont une avec une adresse inventée par le client
+curl https://flowops.vincent-angoulvant.fr/api/workflows
+curl -H "X-Forwarded-For: 198.51.100.66" https://flowops.vincent-angoulvant.fr/api/workflows
+# Lignes « forwarded-for » : en-têtes reçus et adresse retenue
+gcloud logging read 'resource.labels.service_name="flowops-api" AND jsonPayload.diagnostic="forwarded-for"' --limit=5 --freshness=10m
+gcloud run services update flowops-api --region=europe-west1 --remove-env-vars=LOG_FORWARDED_FOR
+```
+
+La bonne valeur est celle pour laquelle `ip` est l'adresse publique du poste qui a lancé `curl`, y compris avec l'en-tête inventé.

@@ -104,3 +104,29 @@ describe("CORS", () => {
     expect(other.headers["access-control-allow-origin"]).not.toBe("https://malveillant.example");
   });
 });
+
+describe("diagnostic des en-têtes d'adresse", () => {
+  it("journalise les en-têtes d'adresse et l'adresse retenue, seulement s'il est activé", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const app = (logForwardedFor: boolean) =>
+      createApp({ fetch, auth: fakeAuth, trustProxyHops: 1, logForwardedFor });
+
+    await request(app(false)).get("/api/workflows").set("x-forwarded-for", "198.51.100.1");
+    expect(log).not.toHaveBeenCalled();
+
+    await request(app(true))
+      .get("/api/workflows")
+      .set("x-forwarded-for", "198.51.100.1, 203.0.113.7")
+      .set("authorization", "Bearer secret");
+
+    const line = JSON.parse(String(log.mock.calls[0]?.[0]));
+    expect(line).toMatchObject({
+      diagnostic: "forwarded-for",
+      ip: "203.0.113.7",
+      headers: { "x-forwarded-for": "198.51.100.1, 203.0.113.7" },
+    });
+    // Rien d'autre que les en-têtes d'adresse : ni jeton, ni cookie
+    expect(line.headers).not.toHaveProperty("authorization");
+    log.mockRestore();
+  });
+});
