@@ -114,12 +114,16 @@ La configuration web de Firebase n'est pas versionnée (aucun `.env` dans le dé
 | Variable               | Valeur                                                    |
 | ---------------------- | --------------------------------------------------------- |
 | `FIREBASE_WEB_API_KEY` | Clé web de l'application FlowOps du projet `flowops-prod` |
-| `FIREBASE_AUTH_DOMAIN` | `flowops-prod.firebaseapp.com`                            |
+| `FIREBASE_AUTH_DOMAIN` | `flowops.vincent-angoulvant.fr`                           |
 | `FIREBASE_WEB_APP_ID`  | Identifiant de l'application web (`1:592511140226:web:…`) |
 
-Valeurs dans la console Firebase (_Paramètres du projet > Général > Vos applications_). Ce sont des variables et non des secrets : la clé web identifie le projet et se lit dans le JavaScript du site. Elle est restreinte depuis la console Google Cloud (_API et services > Identifiants_) :
+Valeurs dans la console Firebase (_Paramètres du projet > Général > Vos applications_). Après une modification, relancer le déploiement (_Actions > Déploiement > Run workflow_).
+
+`FIREBASE_AUTH_DOMAIN` est le domaine du site, et non `flowops-prod.firebaseapp.com` : la fenêtre de connexion Google affiche alors ce domaine, et la connexion reste sur la même origine que l'éditeur (Hosting sert lui-même `/__/auth/handler`). Le client OAuth « Web client (auto created by Google Service) » du projet l'autorise (console Google Cloud, _API et services > Identifiants_) : origine `https://flowops.vincent-angoulvant.fr`, redirection `https://flowops.vincent-angoulvant.fr/__/auth/handler`. Ce sont des variables et non des secrets : la clé web identifie le projet et se lit dans le JavaScript du site. Elle est restreinte depuis la console Google Cloud (_API et services > Identifiants_) :
 
 - sites : `https://flowops.vincent-angoulvant.fr/*`, `https://flowops-prod.web.app/*`, `https://flowops-prod.firebaseapp.com/*` (page de connexion de Firebase) ;
 - API : `identitytoolkit.googleapis.com` et `securetoken.googleapis.com` (connexion et renouvellement du jeton) seulement.
 
-Vérifié : depuis le site, création d'une session de démo `200` ; depuis un autre site ou sans origine, `403`. La restriction par site se contourne avec un script qui invente l'en-tête `Referer` : elle évite la réutilisation de la clé par un autre site, pas un abus délibéré, que bornent les limites de l'API.
+Vérifié : depuis le site, création d'une session de démo `200` ; depuis un autre site ou sans origine, `403`.
+
+La première clé (créée automatiquement par Firebase) avait été commitée dans `apps/web/.env.production` : elle a été remplacée le 22 octobre (nouvelle clé rattachée à l'application web, puis ancienne supprimée). La valeur restée dans l'historique Git est invalide. Pour une prochaine rotation : créer la clé, la rattacher à l'application web (Firebase n'accepte qu'une clé sans restriction au moment du rattachement : restreindre juste après), changer `FIREBASE_WEB_API_KEY`, redéployer, puis supprimer l'ancienne. La restriction par site se contourne avec un script qui invente l'en-tête `Referer` : elle évite la réutilisation de la clé par un autre site, pas un abus délibéré, que bornent les limites de l'API.
