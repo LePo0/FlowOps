@@ -6,17 +6,14 @@
 
 ## Démarrage au quotidien
 
-Trois commandes, dans cet ordre, depuis la racine du projet :
+Avec PostgreSQL démarré (service Windows, ou `docker compose up -d`), depuis la racine du projet :
 
 ```powershell
-npm run db:start   # base PostgreSQL locale : à relancer après chaque redémarrage du PC
 npm run dev:api    # API sur http://localhost:3000
 npm run dev:web    # éditeur sur http://localhost:5173
 ```
 
-`npm run db:status` indique si la base tourne, `npm run db:stop` l'arrête.
-
-Si l'API affiche « Base de données injoignable », c'est que la base n'a pas été démarrée.
+Si l'API affiche « Base de données injoignable », PostgreSQL n'est pas démarré ou n'écoute pas sur le port de `DATABASE_URL`.
 
 ## Fonctionnalités
 
@@ -33,7 +30,7 @@ Si l'API affiche « Base de données injoignable », c'est que la base n'a pas �
 ## Prérequis
 
 - **Node.js 24** ou plus récent.
-- **PostgreSQL 18** installé (seuls ses programmes sont utilisés : FlowOps a sa propre instance, sans droits administrateur).
+- **PostgreSQL 18** sur le port 5432 : installé sur le poste, ou lancé avec Docker (`docker compose up -d`).
 - **Java 21** ou plus récent, uniquement pour les [tests de bout en bout](#tests-de-bout-en-bout) (émulateur Firebase).
 
 ## Première installation
@@ -44,7 +41,7 @@ Si l'API affiche « Base de données injoignable », c'est que la base n'a pas �
    npm install
    ```
 
-2. Créer l'instance PostgreSQL locale (port 5433, données hors de OneDrive), le rôle `flowops` et les bases `flowops` et `flowops_test` : procédure dans [docs/architecture.md, section « Base locale »](docs/architecture.md#base-locale).
+2. Préparer la base : `docker compose up -d` crée tout (rôle `flowops`, bases `flowops` et `flowops_test`). Avec un PostgreSQL installé sur le poste, créer le rôle et les bases à la main : [docs/architecture.md, section « Base locale »](docs/architecture.md#base-locale).
 
 3. Créer `apps/api/.env` à partir de [`apps/api/.env.example`](apps/api/.env.example) et y mettre le mot de passe du rôle `flowops` et l'ID du projet Firebase de développement (`FIREBASE_PROJECT_ID`). Ce fichier est ignoré par Git.
 
@@ -56,7 +53,7 @@ Si l'API affiche « Base de données injoignable », c'est que la base n'a pas �
    npm run db:migrate -w api
    ```
 
-6. Lancer la base, l'API et l'éditeur comme dans [Démarrage au quotidien](#démarrage-au-quotidien).
+6. Lancer l'API et l'éditeur comme dans [Démarrage au quotidien](#démarrage-au-quotidien).
 
 ### Authentification
 
@@ -161,7 +158,7 @@ apps/
 packages/
   shared/     Contrat partagé : schémas Zod du workflow et des réponses de l'API
 e2e/          Tests de bout en bout : Playwright, émulateur Firebase, service cible
-scripts/      Démarrage de la base locale (db.mjs)
+scripts/      Création de la base de test dans le conteneur PostgreSQL
 docs/         Architecture et roadmap
 ```
 

@@ -33,7 +33,7 @@ _Dernière mise à jour : 22 octobre 2026._
 
 ### 3. Persistance
 
-- [x] Choix de la base : PostgreSQL 18 en local (instance utilisateur sur le port 5433), service `postgres:18` jetable en CI pour les tests d'intégration
+- [x] Choix de la base : PostgreSQL 18 en local (port 5432, service installé ou `docker compose`), service `postgres:18` jetable en CI pour les tests d'intégration
 - [x] Prisma : `User`, `Workflow`, `WorkflowRun`, `NodeRun`, migrations
 - [x] CRUD des workflows (API et éditeur : enregistrer, ouvrir, supprimer)
 - [x] Historique des exécutions : enregistrement de chaque exécution d'un workflow enregistré (50 dernières), consultation par l'API ; affichage dans l'éditeur à l'étape 6
