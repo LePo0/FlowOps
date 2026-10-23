@@ -5,7 +5,7 @@
 
 Éditeur visuel de workflows d'API, avec moteur d'exécution, historique et débogage. On assemble des nœuds sur un canvas (requête HTTP, condition, transformation), on exécute, et on voit ce que chaque nœud a reçu, produit ou refusé.
 
-**[Essayer la démo → flowops.vincent-angoulvant.fr](https://flowops.vincent-angoulvant.fr)** : sans inscription, trois workflows d'exemple sont prêts à exécuter.
+**[Essayer la démo → flowops.vincent-angoulvant.fr](https://flowops.vincent-angoulvant.fr)** : sans inscription, trois workflows d'exemple sont prêts à exécuter. Par où commencer : [trois scénarios de deux minutes](docs/demo.md).
 
 ![Un workflow exécuté : chaque nœud affiche son statut, le panneau de droite la sortie du nœud sélectionné](docs/images/exemple_flow.png)
 
@@ -201,4 +201,6 @@ deploy/       Déploiement en production
 - [Décisions](docs/decisions.md) : les choix structurants, leurs raisons et ce qui a été écarté.
 - Sécurité : [nœud HTTP](docs/security/http-node.md) et [sessions de démo](docs/security/demo-sessions.md), scénarios et résultats vérifiés.
 - [Roadmap](docs/roadmap.md) : ce qui est fait et la suite, dans l'ordre.
+- [Scénarios de démo](docs/demo.md) : trois parcours guidés sur la démo en ligne (réussite, erreur à corriger, historique).
 - [Déploiement](deploy/README.md) : production sur Google Cloud et Firebase, déploiement automatique, droits, secrets et coût.
+- [Installation en entreprise](docs/enterprise-install.md) : image de l'API, éditeur, réseaux internes, Firebase de l'entreprise.
