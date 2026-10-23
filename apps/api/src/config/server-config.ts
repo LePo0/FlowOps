@@ -73,6 +73,6 @@ export function describeDatabaseError(error: unknown, databaseUrl: string): stri
   const code = error instanceof Error && "code" in error ? String(error.code) : undefined;
   const { hostname, port } = new URL(databaseUrl);
   return code === "ECONNREFUSED"
-    ? `Base de données injoignable sur ${hostname}:${port}. En local, démarrez-la avec : npm run db:start`
+    ? `Base de données injoignable sur ${hostname}:${port}. En local, démarrez PostgreSQL (service Windows, ou docker compose up -d)`
     : `Accès à la base de données impossible (${code ?? "erreur inconnue"}) : ${error instanceof Error ? error.message : String(error)}`;
 }

@@ -113,7 +113,7 @@ describe("message d'échec du premier accès à la base", () => {
     const message = describeDatabaseError(refused, url);
 
     expect(message).toBe(
-      "Base de données injoignable sur db.local:5433. En local, démarrez-la avec : npm run db:start",
+      "Base de données injoignable sur db.local:5433. En local, démarrez PostgreSQL (service Windows, ou docker compose up -d)",
     );
     expect(message).not.toContain("secret");
   });

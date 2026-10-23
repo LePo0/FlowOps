@@ -269,24 +269,15 @@ Suppressions en cascade : un utilisateur emporte ses workflows, un workflow ses 
 
 ### Base locale
 
-Le poste de développement n'a pas les droits administrateur sur l'instance PostgreSQL installée par le portail d'entreprise. FlowOps utilise donc **sa propre instance**, avec les programmes de cette installation et un dossier de données appartenant à l'utilisateur :
+N'importe quel PostgreSQL 18 sur le port 5432, avec un rôle `flowops` (droit `CREATEDB`, nécessaire à la base temporaire de `prisma migrate dev`) et deux bases, `flowops` et `flowops_test`. URL dans `apps/api/.env`.
 
-- données dans `%LOCALAPPDATA%\flowops-postgres\data`, **hors de OneDrive** (la synchronisation corromprait la base) ;
-- port **5433**, pour ne pas gêner l'instance du portail sur le 5432 ;
-- `npm run db:start`, `db:stop`, `db:status` (`scripts/db.mjs`, chemins modifiables avec `PG_BIN` et `PG_DATA`). Ce n'est pas un service Windows : **à relancer après chaque redémarrage du PC**, sinon l'API refuse de démarrer avec « Base de données injoignable » ;
-- rôle `flowops` (droit `CREATEDB`, nécessaire à la base temporaire de `prisma migrate dev`), bases `flowops` et `flowops_test` ; URL dans `apps/api/.env`.
+- **Avec Docker** : `docker compose up -d` lance PostgreSQL 18 avec ce rôle et ces deux bases (identifiants de `apps/api/.env.example`), comme le service jetable de la CI. Données dans un volume Docker.
+- **PostgreSQL installé sur le poste** (service Windows, démarré avec le système) : créer le rôle et les bases une fois, connecté en superutilisateur :
 
-Création de l'instance, une seule fois (PowerShell) :
-
-```powershell
-$bin = "C:\Program Files\PostgreSQL\18\bin"; $root = "$env:LOCALAPPDATA\flowops-postgres"
-New-Item -ItemType Directory -Force $root | Out-Null
-# Choisir un mot de passe pour le superutilisateur postgres de cette instance, dans $root\superuser-password.txt
-& "$bin\initdb.exe" -D "$root\data" -U postgres --pwfile="$root\superuser-password.txt" --auth=scram-sha-256 -E UTF8 --no-locale
-Add-Content "$root\data\postgresql.conf" "port = 5433`nlisten_addresses = 'localhost'"
-npm run db:start
-# Puis, connecté en postgres sur le port 5433 : CREATE ROLE flowops LOGIN PASSWORD '…' CREATEDB;
-# CREATE DATABASE flowops OWNER flowops; CREATE DATABASE flowops_test OWNER flowops;
+```sql
+CREATE ROLE flowops LOGIN PASSWORD '…' CREATEDB;
+CREATE DATABASE flowops OWNER flowops;
+CREATE DATABASE flowops_test OWNER flowops;
 ```
 
 Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et applique une migration, `npm run db:generate -w api` régénère le client.

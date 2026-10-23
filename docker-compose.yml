@@ -1,0 +1,22 @@
+# PostgreSQL 18 pour le développement, si aucun n'est installé sur le poste : docker compose up -d
+# Mêmes identifiants que apps/api/.env.example ; bases flowops et flowops_test (tests d'intégration).
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: flowops
+      POSTGRES_PASSWORD: motdepasse
+      POSTGRES_DB: flowops
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./scripts/create-test-database.sql:/docker-entrypoint-initdb.d/create-test-database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowops -d flowops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
