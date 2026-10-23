@@ -1,6 +1,6 @@
 # Architecture de FlowOps
 
-_Document vivant : les parties marquées « à venir » seront complétées au fil du projet._
+_Fonctionnement de FlowOps : modules, moteur, API, éditeur, persistance, sécurité et production. Les raisons des choix sont dans [decisions.md](decisions.md)._
 
 ## 1. Vue d'ensemble
 
@@ -23,6 +23,25 @@ flowchart LR
 | `apps/api`            | API REST, validation des entrées, orchestration                               |
 | `apps/api/src/engine` | Validation du graphe et exécution, en TypeScript pur                          |
 | `packages/shared`     | Contrat du workflow : schémas Zod et types partagés front/back                |
+
+### En production
+
+```mermaid
+flowchart LR
+  V["Navigateur<br/>éditeur React"] -->|"flowops.vincent-angoulvant.fr<br/>(CNAME Cloudflare)"| H["Firebase Hosting<br/>éditeur statique"]
+  V -->|"connexion, jeton<br/>(Google, email, anonyme)"| F["Firebase Auth<br/>projet flowops-prod"]
+  H -->|"/api/** réécrit"| R["Cloud Run · flowops-api<br/>europe-west1, 0 à 2 instances"]
+  R -->|"vérifie le jeton<br/>(clés publiques Google)"| F
+  R -->|"Prisma · secret database-url"| N[("Neon<br/>PostgreSQL 18")]
+  R -->|"nœud HTTP<br/>politique réseau"| X["API publiques<br/>appelées par les workflows"]
+  G["GitHub Actions<br/>après la CI sur main"] -.->|"image, migrations,<br/>révision, publication"| R
+  G -.-> H
+  G -.->|"prisma migrate deploy"| N
+```
+
+- **Une seule origine** : Hosting sert l'éditeur et réécrit `/api/**` vers Cloud Run. Pas de CORS, comme le proxy de Vite en local.
+- **Chemin d'une exécution** : l'éditeur envoie le graphe avec le jeton Firebase ; l'API vérifie le jeton, applique les limites (par compte, par adresse IP pour les sessions de démo), exécute, enregistre l'exécution dans Neon et renvoie le résultat de chaque nœud.
+- **Garde-fous** : Cloud Run limité à 2 instances, plafonds de dépenses et alerte de budget, nettoyage des sessions de démo inactives. Configuration, droits et procédures : [deploy/README.md](../deploy/README.md).
 
 ## 2. Le contrat du workflow (`packages/shared`)
 
@@ -287,9 +306,9 @@ Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et appliq
 - Tests : Vitest (+ Supertest pour l'API). Le moteur est testé sans réseau.
 - Tests d'intégration de l'API sur une vraie base PostgreSQL (`TEST_DATABASE_URL`) : Vitest y applique les migrations avant de lancer les tests, et ne leur transmet jamais `DATABASE_URL`. Sans base de test, ils sont ignorés en local mais font échouer la CI, où un service `postgres:18` jetable est fourni.
 - Tests de bout en bout (`e2e/`) : Playwright pilote l'éditeur dans Chromium contre la vraie API, une base dédiée (`flowops_e2e`) et l'émulateur Firebase Auth. Un service cible local remplace Internet pour le nœud HTTP : il écoute sur une adresse privée de la machine, ouverte par `HTTP_ALLOWED_TARGETS`, puisque la boucle locale reste toujours refusée. Scénarios : inscription et vérification de l'adresse, déconnexion et isolation, exécution nominale, cible refusée, réponse 404, modification puis relance depuis l'historique.
-- CI GitHub Actions : `lint`, `typecheck`, `test`, `format` et `e2e` en parallèle, sur pull requests et sur `main`.
-- Workflow Git : `main` protégé, branches courtes, pull requests avec squash.
-- Déploiement cible (à venir, étape 9 de la roadmap) : `flowops.vincent-angoulvant.fr` sur Firebase Hosting, qui réécrit `/api/**` vers l'API sur Cloud Run ; base PostgreSQL Neon (offre gratuite) ; la même image Docker, configurée par variables d'environnement, pour une installation en entreprise.
+- CI GitHub Actions : `lint`, `typecheck`, `test`, `format`, `e2e` et `docker` (image de l'API construite puis démarrée contre une base jetable) en parallèle, sur pull requests et sur `main`.
+- Workflow Git : `main` protégé, branches courtes, une pull request par sujet.
+- Déploiement continu : après une CI réussie sur `main`, GitHub Actions construit l'image, applique les migrations, déploie Cloud Run puis publie l'éditeur sur Hosting (voir « En production », section 1). La même image sert une [installation en entreprise](enterprise-install.md).
 
 ## 9. Décisions
 

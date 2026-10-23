@@ -111,14 +111,14 @@ flowchart LR
 - [ ] Alerte email de budget dès 0,10 € (prévenir bien avant le plafond)
 - [x] **Déploiement par GitHub Actions** sur `main`, après la CI : Workload Identity Federation (pas de clé statique), migrations Prisma, image, Cloud Run, puis Hosting
 - [x] **Vérification en ligne** (22 et 23 octobre) : session de démo avec les trois exemples, exécution et historique, création de compte et connexion Google dans le navigateur, 11e exécution d'une session de démo en une minute refusée (`429`, `Retry-After`), serveur de métadonnées refusé (« Adresse non autorisée »), en-têtes de sécurité, clé refusée depuis un autre site
-- [ ] Installation en entreprise : image Docker de l'API et de l'éditeur configurable par variables d'environnement (politique réseau, projet Firebase, base), documentée
+- [x] Installation en entreprise documentée ([docs/enterprise-install.md](enterprise-install.md)) : image Docker de l'API configurable par variables d'environnement, éditeur statique construit avec la configuration Firebase de l'entreprise
 
 ### 10. Finitions portfolio
 
 - [x] README : vitrine (démo en ligne, captures, ce que montre le projet, stack), guide d'installation ensuite
-- [ ] `docs/architecture.md` à jour avec un schéma final
+- [x] `docs/architecture.md` à jour avec un schéma final (production : Hosting, Cloud Run, Neon, Firebase Auth, déploiement)
 - [x] `docs/decisions.md`
-- [ ] Trois scénarios de démonstration
+- [x] Trois scénarios de démonstration ([docs/demo.md](demo.md))
 - [ ] Vidéo courte
 
 ## Hors périmètre (pistes d'évolution)
