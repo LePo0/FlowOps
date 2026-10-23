@@ -1,19 +1,38 @@
 # FlowOps
 
-Éditeur visuel de workflows d'API : on assemble des nœuds (déclencheur, requête HTTP, condition, transformation) sur un canvas, on exécute le workflow et on voit le résultat de chaque nœud.
+[![CI](https://github.com/LePo0/FlowOps/actions/workflows/ci.yml/badge.svg)](https://github.com/LePo0/FlowOps/actions/workflows/ci.yml)
+[![Déploiement](https://github.com/LePo0/FlowOps/actions/workflows/deploy.yml/badge.svg)](https://github.com/LePo0/FlowOps/actions/workflows/deploy.yml)
 
-> **Statut** : en développement, usage local uniquement. Le nœud HTTP est protégé (politique réseau, voir [docs/security/http-node.md](docs/security/http-node.md)) ; une limite d'exécutions par utilisateur reste à faire avant la mise en ligne (voir la [roadmap](docs/roadmap.md)).
+Éditeur visuel de workflows d'API, avec moteur d'exécution, historique et débogage. On assemble des nœuds sur un canvas (requête HTTP, condition, transformation), on exécute, et on voit ce que chaque nœud a reçu, produit ou refusé.
 
-## Démarrage au quotidien
+**[Essayer la démo → flowops.vincent-angoulvant.fr](https://flowops.vincent-angoulvant.fr)** : sans inscription, trois workflows d'exemple sont prêts à exécuter.
 
-Avec PostgreSQL démarré (service Windows, ou `docker compose up -d`), depuis la racine du projet :
+![Un workflow exécuté : chaque nœud affiche son statut, le panneau de droite la sortie du nœud sélectionné](docs/images/exemple_flow.png)
 
-```powershell
-npm run dev:api    # API sur http://localhost:3000
-npm run dev:web    # éditeur sur http://localhost:5173
-```
+## Ce que montre le projet
 
-Si l'API affiche « Base de données injoignable », PostgreSQL n'est pas démarré ou n'écoute pas sur le port de `DATABASE_URL`.
+- **Un moteur d'exécution** en TypeScript pur : validation du graphe, tri topologique, branches, références entre nœuds (`{{species.body.evolution_chain.url}}`), échéance globale. Près de 200 tests, sans réseau.
+- **Le débogage au cœur de l'interface** : statut, entrée réellement envoyée, sortie et cause technique de chaque échec ; historique qui garde le graphe tel qu'il a tourné, et relance à l'identique.
+- **La sécurité d'un service qui appelle des URL choisies par l'utilisateur** : politique réseau contre la SSRF, vérifiée sur l'adresse IP contactée et à chaque redirection, lecture des réponses bornée, scénarios d'attaque écrits avant le code ([détail](docs/security/http-node.md)).
+- **Une démo publique sans compte**, mais sans compte partagé : chaque visiteur a sa session privée, avec des quotas, et peut la transformer en vrai compte ([détail](docs/security/demo-sessions.md)).
+- **Une chaîne complète jusqu'à la production** : CI (lint, types, tests unitaires et d'intégration, tests de bout en bout Playwright, image Docker), déploiement automatique sans clé stockée, coût plafonné ([détail](deploy/README.md)).
+
+Les choix et ce qui a été écarté : [docs/decisions.md](docs/decisions.md).
+
+| Un nœud en échec : message, entrée utilisée, nœuds suivants ignorés             | L'historique : chaque exécution, nœud par nœud, et sa relance   |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| ![Exemple 3 : la requête échoue sur une référence vide](docs/images/erreur.png) | ![Fenêtre Historique d'un workflow](docs/images/historique.png) |
+
+## Stack
+
+| Partie     | Technologies                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------- |
+| Éditeur    | React, React Flow, Zustand, Vite                                                         |
+| API        | Node.js 24, Express 5, Zod, Prisma 7, PostgreSQL                                         |
+| Contrat    | Schémas Zod partagés entre l'éditeur et l'API (`packages/shared`)                        |
+| Comptes    | Firebase Authentication (Google, email, sessions anonymes), jetons vérifiés avec `jose`  |
+| Tests      | Vitest, Supertest, Playwright avec l'émulateur Firebase                                  |
+| Production | Cloud Run, Firebase Hosting, Neon, GitHub Actions (Workload Identity Federation), Docker |
 
 ## Fonctionnalités
 
@@ -27,13 +46,26 @@ Si l'API affiche « Base de données injoignable », PostgreSQL n'est pas démar
 - **Exécution** : statut de chaque nœud (réussi, échec, ignoré), sortie, entrée réellement utilisée et détail technique des erreurs.
 - **Enregistrement** : nom du workflow, Ctrl+S, « Ouvrir… », « Nouveau » ; le dernier workflow ouvert est rouvert au rechargement de la page.
 
-## Prérequis
+![Fenêtre « Ouvrir un workflow » avec les trois exemples d'une session de démo](docs/images/flow_enregistres.png)
+
+## Développement local
+
+Avec PostgreSQL démarré (service Windows, ou `docker compose up -d`), depuis la racine du projet :
+
+```powershell
+npm run dev:api    # API sur http://localhost:3000
+npm run dev:web    # éditeur sur http://localhost:5173
+```
+
+Si l'API affiche « Base de données injoignable », PostgreSQL n'est pas démarré ou n'écoute pas sur le port de `DATABASE_URL`.
+
+### Prérequis
 
 - **Node.js 24** ou plus récent.
 - **PostgreSQL 18** sur le port 5432 : installé sur le poste, ou lancé avec Docker (`docker compose up -d`).
 - **Java 21** ou plus récent, uniquement pour les [tests de bout en bout](#tests-de-bout-en-bout) (émulateur Firebase).
 
-## Première installation
+### Première installation
 
 1. Installer les dépendances (génère aussi le client Prisma) :
 
@@ -53,9 +85,9 @@ Si l'API affiche « Base de données injoignable », PostgreSQL n'est pas démar
    npm run db:migrate -w api
    ```
 
-6. Lancer l'API et l'éditeur comme dans [Démarrage au quotidien](#démarrage-au-quotidien).
+6. Lancer l'API et l'éditeur comme dans [Développement local](#développement-local).
 
-### Authentification
+#### Authentification
 
 FlowOps utilise deux projets Firebase : `flowops-dev-…` en local, `flowops-prod-…` pour la mise en ligne. Les comptes de test ne se mélangent jamais avec ceux de production.
 
@@ -74,7 +106,7 @@ Dans la [console Firebase](https://console.firebase.google.com/), pour chaque pr
 
    Ces valeurs ne sont pas secrètes : elles sont servies au navigateur. L'API n'a besoin que de l'ID du projet (`FIREBASE_PROJECT_ID` dans `apps/api/.env`), pour n'accepter que les jetons émis pour celui-ci.
 
-### Appels vers un réseau interne
+#### Appels vers un réseau interne
 
 Par défaut, le nœud HTTP n'appelle que des adresses publiques : `localhost`, les réseaux privés et le serveur de métadonnées du cloud sont refusés (« Adresse non autorisée »). Pour une installation en entreprise, l'administrateur ouvre explicitement des réseaux ou des domaines dans `apps/api/.env` :
 
@@ -85,11 +117,11 @@ HTTP_DENIED_TARGETS=10.20.99.0/24   # exclusions, prioritaires (ex. le réseau d
 
 La boucle locale et le serveur de métadonnées restent toujours interdits. Règles et scénarios vérifiés : [docs/security/http-node.md](docs/security/http-node.md).
 
-### Vérification de l'adresse email
+#### Vérification de l'adresse email
 
 Les comptes email/mot de passe doivent vérifier leur adresse avant d'accéder à l'éditeur (l'API répond `403` sinon). Les tests n'utilisent pas le vrai Firebase : aucune configuration n'est nécessaire pour `npm test`, ni pour les tests de bout en bout, ni en CI.
 
-### Tests de bout en bout
+#### Tests de bout en bout
 
 Playwright pilote l'éditeur dans Chromium, contre la vraie API, une base PostgreSQL et l'**émulateur Firebase Auth** (comptes en mémoire, liens de vérification lus sans boîte mail). Scénarios : session de démo (exemples, rechargement, passage à un vrai compte, retour à la démo), inscription et vérification de l'adresse, déconnexion et isolation des comptes, exécution nominale, cible refusée, réponse 404, modification d'un workflow puis relance depuis l'historique.
 
@@ -110,7 +142,7 @@ La commande lance elle-même l'émulateur, un service cible pour le nœud HTTP, 
 - **Jetons de l'émulateur** : ils ne sont pas signés. L'API ne les accepte que si `FIREBASE_AUTH_EMULATOR_HOST` est défini, et refuse alors de démarrer en production ou avec un vrai projet : seul un projet `demo-*`, réservé à l'émulateur par Firebase, est permis.
 - **Service cible** : la boucle locale est toujours refusée par le nœud HTTP. Le service écoute donc sur une adresse privée de la machine, ouverte pour l'API de test seule (`HTTP_ALLOWED_TARGETS`). Si la détection automatique choisit une mauvaise interface, la fixer avec `E2E_TARGET_HOST`. Au premier lancement, Windows peut demander d'autoriser Node.js sur le réseau privé.
 
-### Derrière un proxy d'entreprise
+#### Derrière un proxy d'entreprise
 
 `npm run dev:api` démarre Node avec `--use-system-ca` : les requêtes du nœud HTTP passent par les certificats du système, dont celui du proxy. Pour installer ou mettre à jour Prisma derrière ce proxy :
 
@@ -159,11 +191,14 @@ packages/
   shared/     Contrat partagé : schémas Zod du workflow et des réponses de l'API
 e2e/          Tests de bout en bout : Playwright, émulateur Firebase, service cible
 scripts/      Création de la base de test dans le conteneur PostgreSQL
-docs/         Architecture et roadmap
+docs/         Architecture, décisions, sécurité, roadmap, captures (images/)
+deploy/       Déploiement en production
 ```
 
 ## Documentation
 
 - [Architecture](docs/architecture.md) : modules, moteur, API, éditeur, persistance, limites et sécurité.
+- [Décisions](docs/decisions.md) : les choix structurants, leurs raisons et ce qui a été écarté.
+- Sécurité : [nœud HTTP](docs/security/http-node.md) et [sessions de démo](docs/security/demo-sessions.md), scénarios et résultats vérifiés.
 - [Roadmap](docs/roadmap.md) : ce qui est fait et la suite, dans l'ordre.
 - [Déploiement](deploy/README.md) : production sur Google Cloud et Firebase, déploiement automatique, droits, secrets et coût.

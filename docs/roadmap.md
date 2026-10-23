@@ -115,7 +115,7 @@ flowchart LR
 
 ### 10. Finitions portfolio
 
-- [ ] README
+- [x] README : vitrine (démo en ligne, captures, ce que montre le projet, stack), guide d'installation ensuite
 - [ ] `docs/architecture.md` à jour avec un schéma final
 - [x] `docs/decisions.md`
 - [ ] Trois scénarios de démonstration
