@@ -302,4 +302,4 @@ Commandes Prisma (dans `apps/api`) : `npm run db:migrate -w api` crée et appliq
 
 ## 9. Décisions
 
-Les choix détaillés et leurs raisons sont (ou seront) dans `docs/decisions.md`.
+Les choix structurants, leurs raisons et ce qui a été écarté : [`docs/decisions.md`](decisions.md).

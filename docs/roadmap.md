@@ -116,7 +116,7 @@ flowchart LR
 
 - [ ] README
 - [ ] `docs/architecture.md` à jour avec un schéma final
-- [ ] `docs/decisions.md`
+- [x] `docs/decisions.md`
 - [ ] Trois scénarios de démonstration
 - [ ] Vidéo courte
 
